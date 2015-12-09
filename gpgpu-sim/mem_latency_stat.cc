@@ -216,14 +216,14 @@ void memory_stats_t::memlatstat_print( unsigned n_mem, unsigned gpu_mem_n_bk )
    unsigned max_bank_accesses, min_bank_accesses, max_chip_accesses, min_chip_accesses;
 
    if (m_memory_config->gpgpu_memlatency_stat) {
-      printf("maxmrqlatency = %d \n", max_mrq_latency);
-      printf("maxdqlatency = %d \n", max_dq_latency);
-      printf("maxmflatency = %d \n", max_mf_latency);
+      printf("maxmrqlatency         = %d \n", max_mrq_latency);
+      printf("maxdqlatency          = %d \n", max_dq_latency);
+      printf("maxmflatency          = %d \n", max_mf_latency);
       if (num_mfs) {
-         printf("averagemflatency = %lld \n", mf_total_lat/num_mfs);
+         printf("averagemflatency   = %lld \n", mf_total_lat/num_mfs);
       }
-      printf("max_icnt2mem_latency = %d \n", max_icnt2mem_latency);
-      printf("max_icnt2sh_latency = %d \n", max_icnt2sh_latency);
+      printf("max_icnt2mem_latency  = %d \n", max_icnt2mem_latency);
+      printf("max_icnt2sh_latency   = %d \n", max_icnt2sh_latency);
       printf("mrq_lat_table:");
       for (i=0; i< 32; i++) {
          printf("%d \t", mrq_lat_table[i]);
@@ -459,4 +459,4 @@ void memory_stats_t::memlatstat_print( unsigned n_mem, unsigned gpu_mem_n_bk )
       printf("\n");
       printf("\naverage position of mrq chosen = %f\n", (float)l/k);
    }
-}
+}//-memlatstat_print()

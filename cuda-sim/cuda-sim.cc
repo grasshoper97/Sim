@@ -1739,10 +1739,10 @@ void gpgpu_cuda_ptx_sim_main_func( kernel_info_t &kernel, bool openCL )
    sec = elapsed_time - 60*(minutes + 60*(hrs + 24*days));
 
    fflush(stderr);
-   printf("\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (%u sec)\n",
+   printf("\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (total %u sec)\n",
           (unsigned)days, (unsigned)hrs, (unsigned)minutes, (unsigned)sec, (unsigned)elapsed_time );
-   printf("gpgpu_simulation_rate = %u (inst/sec)\n", (unsigned)(g_ptx_sim_num_insn / elapsed_time) );
-   fflush(stdout); 
+   printf("gpgpu_simulation_rate     = %u (inst/sec)\n", (unsigned)(g_ptx_sim_num_insn / elapsed_time) );
+   fflush(stdout); //- functional simulate output.
 }
 
 void functionalCoreSim::initializeCTA()

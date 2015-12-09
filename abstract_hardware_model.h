@@ -559,8 +559,19 @@ MA_TUP_BEGIN( mem_access_type ) \
    MA_TUP( L1_WR_ALLOC_R ), \
    MA_TUP( L2_WR_ALLOC_R ), \
    MA_TUP( NUM_MEM_ACCESS_TYPE ) \
-MA_TUP_END( mem_access_type ) 
-
+MA_TUP_END( mem_access_type )
+// GLOBAL_ACC_R          0  
+// LOCAL_ACC_R           1  
+// CONST_ACC_R           2  
+// TEXTURE_ACC_R         3  
+// GLOBAL_ACC_W          4  
+// LOCAL_ACC_W           5  
+// L1_WRBK_ACC           6  
+// L2_WRBK_ACC           7  
+// INST_ACC_R            8  
+// L1_WR_ALLOC_R         9  
+// L2_WR_ALLOC_R        10 
+// NUM_MEM_ACCESS_TYPE  11 
 #define MA_TUP_BEGIN(X) enum X {
 #define MA_TUP(X) X
 #define MA_TUP_END(X) };

@@ -552,7 +552,7 @@ gpgpu_sim::gpgpu_sim( const gpgpu_sim_config &config )
         m_gpgpusim_wrapper = new gpgpu_sim_wrapper(config.g_power_simulation_enabled,config.g_power_config_name);
 #endif
 
-    m_shader_stats = new shader_core_stats(m_shader_config);
+    m_shader_stats = new shader_core_stats(m_shader_config);//- only one, shared by all cores
     m_memory_stats = new memory_stats_t(m_config.num_shader(),m_shader_config,m_memory_config);
     average_pipeline_duty_cycle = (float *)malloc(sizeof(float));
     active_sms=(float *)malloc(sizeof(float));
@@ -565,7 +565,7 @@ gpgpu_sim::gpgpu_sim( const gpgpu_sim_config &config )
 
 
     m_cluster = new simt_core_cluster*[m_shader_config->n_simt_clusters];
-    for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) 
+    for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) //-all clusters share a core_stats
         m_cluster[i] = new simt_core_cluster(this,i,m_shader_config,m_memory_config,m_shader_stats,m_memory_stats);
 
     m_memory_partition_unit = new memory_partition_unit*[m_memory_config->m_n_mem];
@@ -886,30 +886,23 @@ void gpgpu_sim::gpu_print_stat()
    std::string kernel_info_str = executed_kernel_info_string(); 
 
    fprintf(statfout, "\n**********************************************************************\n"); 
-   fprintf(statfout, "****  %s  ****\n", kernel_info_str.c_str()); 
+   fprintf(statfout, "%s", kernel_info_str.c_str()); 
    fprintf(statfout, "\n**********************************************************************\n"); 
 
-   printf("gpu_sim_cycle = %lld\n", gpu_sim_cycle);
-   printf("gpu_sim_insn = %lld\n", gpu_sim_insn);
-   printf("gpu_ipc = %12.4f\n", (float)gpu_sim_insn / gpu_sim_cycle);
-   printf("gpu_tot_sim_cycle = %lld\n", gpu_tot_sim_cycle+gpu_sim_cycle);
-   printf("gpu_tot_sim_insn = %lld\n", gpu_tot_sim_insn+gpu_sim_insn);
-   printf("gpu_tot_ipc = %12.4f\n", (float)(gpu_tot_sim_insn+gpu_sim_insn) / (gpu_tot_sim_cycle+gpu_sim_cycle));
-   //cjllean 
-   printf("m_total_cta_launched = %lld\n", m_total_cta_launched);   
-   
-   printf("gpu_tot_issued_cta = %lld\n", gpu_tot_issued_cta);
-
-
+   printf("gpu_sim_cycle        = %8lld  gpu_tot_sim_cycle  = %8lld\n", gpu_sim_cycle, gpu_tot_sim_cycle+gpu_sim_cycle);
+   printf("gpu_sim_insn         = %8lld  gpu_tot_sim_insn   = %8lld\n", gpu_sim_insn,gpu_tot_sim_insn+gpu_sim_insn);
+   printf("gpu_ipc              = %8.4f  gpu_tot_ipc        = %8.4f\n", (float)gpu_sim_insn / gpu_sim_cycle,
+                                (float)(gpu_tot_sim_insn+gpu_sim_insn) / (gpu_tot_sim_cycle+gpu_sim_cycle));
+   printf("m_total_cta_launched = %8lld  gpu_tot_issued_cta = %8lld\n", m_total_cta_launched, gpu_tot_issued_cta);
 
    // performance counter for stalls due to congestion.
-   printf("gpu_stall_dramfull = %d\n", gpu_stall_dramfull);
-   printf("gpu_stall_icnt2sh    = %d\n", gpu_stall_icnt2sh );
+   printf("gpu_stall_dramfull   = %8d\n", gpu_stall_dramfull);
+   printf("gpu_stall_icnt2sh    = %8d\n", gpu_stall_icnt2sh );
 
    time_t curr_time;
    time(&curr_time);
    unsigned long long elapsed_time = MAX( curr_time - g_simulation_starttime, 1 );
-   printf( "gpu_total_sim_rate=%u\n", (unsigned)( ( gpu_tot_sim_insn + gpu_sim_insn ) / elapsed_time ) );
+   printf("gpu_total_sim_rate   = %8u\n", (unsigned)( ( gpu_tot_sim_insn + gpu_sim_insn ) / elapsed_time ) );
 
    //shader_print_l1_miss_stat( stdout ); 
    //========= Core cache stats =========
@@ -922,24 +915,28 @@ void gpgpu_sim::gpu_print_stat()
    }
    printf("\n--------- Total_core_cache_stats:-----------\n");
    core_cache_stats.print_stats(stdout, "Total_core_cache_stats_breakdown");
-   printf("\n--------- scheduler state  -----------\n");
+
+   printf("\n--------- scheduler state  -----------------\n");
    shader_print_scheduler_stat( stdout, false );
-   printf("\n--------- shader  state  -----------\n");
+
+   printf("\n--------- shader  state  -------------------\n");
    m_shader_stats->print(stdout);
+
 #ifdef GPGPUSIM_POWER_MODEL
    if(m_config.g_power_simulation_enabled){
-        printf("\n--------- power kernel  state  -----------\n");
+        printf("\n--------- power kernel  state  -------------------\n");
 	   m_gpgpusim_wrapper->print_power_kernel_stats(gpu_sim_cycle, gpu_tot_sim_cycle, gpu_tot_sim_insn + gpu_sim_insn, kernel_info_str, true );
 	   mcpat_reset_perf_count(m_gpgpusim_wrapper);
    }
 #endif
 
    // performance counter that are not local to one shader
-   printf("\n--------- memory latency status  -----------\n");
+   printf("\n--------- memory latency status  ------------------\n");
    //m_memory_stats->memlatstat_print(m_memory_config->m_n_mem,m_memory_config->nbk);
+
    printf("\n--------- memory partition unit status  -----------\n");
    //for (unsigned i=0;i<m_memory_config->m_n_mem;i++)
-   //   m_memory_partition_unit[i]->print(stdout);
+     // m_memory_partition_unit[i]->print(stdout);
 
    // L2 cache stats
    if(!m_memory_config->m_L2_config.disabled()){
@@ -955,20 +952,21 @@ void gpgpu_sim::gpu_print_stat()
            m_memory_sub_partition[i]->accumulate_L2cache_stats(l2_stats);
            m_memory_sub_partition[i]->get_L2cache_sub_stats(l2_css);
 
-           fprintf( stdout, "L2_cache_bank[%d]: Access = %u, Miss = %u, Miss_rate = %.3lf, Pending_hits = %u, Reservation_fails = %u\n",
+           fprintf( stdout, "L2_cache_bank[%2d]: Access = %3u, Miss = %3u, Miss_rate = %.3lf, Pending_hits = %3u, Reservation_fails = %3u\n",
                     i, l2_css.accesses, l2_css.misses, (double)l2_css.misses / (double)l2_css.accesses, l2_css.pending_hits, l2_css.res_fails);
 
            total_l2_css += l2_css;
        }// for 
        if (!m_memory_config->m_L2_config.disabled() && m_memory_config->m_L2_config.get_num_lines()) {
           //L2c_print_cache_stat();
-          printf("L2_total_cache_accesses = %u\n", total_l2_css.accesses);
-          printf("L2_total_cache_misses = %u\n", total_l2_css.misses);
+          printf("L2_total_cache_accesses           = %u\n", total_l2_css.accesses);
+          printf("L2_total_cache_misses             = %u", total_l2_css.misses);
           if(total_l2_css.accesses > 0)
-              printf("L2_total_cache_miss_rate = %.4lf\n", (double)total_l2_css.misses/(double)total_l2_css.accesses);
-          printf("L2_total_cache_pending_hits = %u\n", total_l2_css.pending_hits);
-          printf("L2_total_cache_reservation_fails = %u\n", total_l2_css.res_fails);
-          printf("L2_total_cache_breakdown:\n");
+              printf("miss_rate = %.4lf", (double)total_l2_css.misses/(double)total_l2_css.accesses);
+          printf("\n");
+          printf("L2_total_cache_pending_hits       = %u\n", total_l2_css.pending_hits);
+          printf("L2_total_cache_reservation_fails  = %u\n", total_l2_css.res_fails);
+          printf("---L2_total_cache_breakdown:---\n");
           l2_stats.print_stats(stdout, "L2_cache_stats_breakdown");
           total_l2_css.print_port_stats(stdout, "L2_cache");
        }
@@ -1002,8 +1000,8 @@ void gpgpu_sim::gpu_print_stat()
 	   total_simt_to_mem += temp_stm;
 	   total_mem_to_simt += temp_mts;
    }
-   printf("\nicnt_total_pkts_mem_to_simt=%ld\n", total_mem_to_simt);
-   printf("icnt_total_pkts_simt_to_mem=%ld\n", total_simt_to_mem);
+   printf("\nicnt_total_pkts_mem_to_simt = %ld\n", total_mem_to_simt);
+   printf("icnt_total_pkts_simt_to_mem = %ld\n", total_simt_to_mem);
 
    time_vector_print();
    fflush(stdout);
@@ -1233,7 +1231,7 @@ void gpgpu_sim::cycle()
       // L1 cache + shader core pipeline stages
       m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX].clear();
       for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) {
-         if (m_cluster[i]->get_not_completed() || get_more_cta_left() ) {
+         if (m_cluster[i]->get_not_completed() || get_more_cta_left() ) {//-only the cores that has CTAS run cycle();
                m_cluster[i]->core_cycle();
                *active_sms+=m_cluster[i]->get_n_active_sms();
          }
@@ -1258,11 +1256,11 @@ void gpgpu_sim::cycle()
          gpgpu_debug();
 
       // McPAT main cycle (interface with McPAT)
-#ifdef GPGPUSIM_POWER_MODEL
+    #ifdef GPGPUSIM_POWER_MODEL
       if(m_config.g_power_simulation_enabled){
           mcpat_cycle(m_config, getShaderCoreConfig(), m_gpgpusim_wrapper, m_power_stats, m_config.gpu_stat_sample_freq, gpu_tot_sim_cycle, gpu_sim_cycle, gpu_tot_sim_insn, gpu_sim_insn);
       }
-#endif
+    #endif
 
       issue_block2core();
       
@@ -1350,7 +1348,7 @@ void gpgpu_sim::cycle()
       }
       try_snap_shot(gpu_sim_cycle);
       spill_log_to_file (stdout, 0, gpu_sim_cycle);
-   }
+   } //-if (clock_mask & CORE) 
 }
 
 

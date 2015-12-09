@@ -138,7 +138,7 @@ private:
    // requesting instruction (put last so mem_fetch prints nicer in gdb)
    warp_inst_t m_inst; // the inst.
 
-   static unsigned sm_next_mf_request_uid; //- static var, reoced mf's order of this GPU.
+   static unsigned sm_next_mf_request_uid; //- static var, reoced mf's order of this GPU. i-fetch/d-fetch.
 
    const class memory_config *m_mem_config;
    unsigned icnt_flit_size;

@@ -34,30 +34,28 @@ set nomodeline
 set printoptions=paper:letter
 set ruler
 set runtimepath=~/.vim,/var/lib/vim/addons,/usr/share/vim/vimfiles,/usr/share/vim/vim72,/usr/share/vim/vimfiles/after,/var/lib/vim/addons/after,~/.vim/after
-set scrollopt=ver,jump,hor
 set shiftwidth=4
 set softtabstop=4
 set suffixes=.bak,~,.swp,.o,.info,.aux,.log,.dvi,.bbl,.blg,.brf,.cb,.ind,.idx,.ilg,.inx,.out,.toc
 set tabstop=4
+set window=32
 let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 let v:this_session=expand("<sfile>:p")
 silent only
-cd ~/gpgpu-sim231/v3.x/src
+cd ~/gpgpu-sim231/v3.x/src/gpuwattch
 if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +340 gitstatus
-badd +0 srcfile
-args gitstatus srcfile
-edit srcfile
+badd +0 gpgpu_sim_wrapper.cc
+args gpgpu_sim_wrapper.cc
+edit gpgpu_sim_wrapper.cc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
 wincmd t
 set winheight=1 winwidth=1
 argglobal
-2argu
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -78,22 +76,22 @@ setlocal nocursorcolumn
 setlocal nocursorline
 setlocal define=
 setlocal dictionary=
-setlocal diff
+setlocal nodiff
 setlocal equalprg=
 setlocal errorformat=
 setlocal expandtab
-if &filetype != ''
-setlocal filetype=
+if &filetype != 'cpp'
+setlocal filetype=cpp
 endif
-setlocal foldcolumn=2
+setlocal foldcolumn=0
 setlocal foldenable
 setlocal foldexpr=0
 setlocal foldignore=#
 set foldlevel=100
-setlocal foldlevel=0
+setlocal foldlevel=100
 setlocal foldmarker={{{,}}}
 set foldmethod=syntax
-setlocal foldmethod=diff
+setlocal foldmethod=syntax
 setlocal foldminlines=1
 setlocal foldnestmax=20
 setlocal foldtext=foldtext()
@@ -129,7 +127,7 @@ setlocal quoteescape=\\
 setlocal noreadonly
 setlocal norightleft
 setlocal rightleftcmd=search
-setlocal scrollbind
+setlocal noscrollbind
 setlocal shiftwidth=4
 setlocal noshortname
 setlocal nosmartindent
@@ -142,8 +140,8 @@ setlocal statusline=
 setlocal suffixesadd=
 setlocal swapfile
 setlocal synmaxcol=3000
-if &syntax != ''
-setlocal syntax=
+if &syntax != 'cpp'
+setlocal syntax=cpp
 endif
 setlocal tabstop=4
 setlocal tags=
@@ -151,13 +149,13 @@ setlocal textwidth=0
 setlocal thesaurus=
 setlocal nowinfixheight
 setlocal nowinfixwidth
-setlocal nowrap
+setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1 - ((0 * winheight(0) + 18) / 36)
+let s:l = 32 - ((0 * winheight(0) + 16) / 32)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1
+32
 normal! 0
 tabnext 1
 if exists('s:wipebuf')

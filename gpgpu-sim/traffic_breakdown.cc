@@ -8,9 +8,9 @@ void traffic_breakdown::print(FILE* fout)
       for (traffic_class_t::const_iterator i_class = i_stat->second.begin(); i_class != i_stat->second.end(); i_class++) {
          byte_transferred += i_class->first * i_class->second;  // byte/packet x #packets
       }
-      fprintf(fout, "traffic_breakdown_%s[%s] = %u {", m_network_name.c_str(), i_stat->first.c_str(), byte_transferred);  
+      fprintf(fout, "traffic_breakdown_%s[%12s] = %6u {",m_network_name.c_str(),i_stat->first.c_str(), byte_transferred);  
       for (traffic_class_t::const_iterator i_class = i_stat->second.begin(); i_class != i_stat->second.end(); i_class++) {
-         fprintf(fout, "%u:%u,", i_class->first, i_class->second); 
+         fprintf(fout, "%4u:%4u", i_class->first, i_class->second); 
       }
       fprintf(fout, "}\n"); 
    }

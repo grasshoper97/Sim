@@ -108,7 +108,7 @@ void tag_array::init( int core_id, int type_id )
     m_core_id = core_id; 
     m_type_id = type_id;
 }
-// search in cache,return hit/pending hit/miss/reservation fail. if miss ,idx is the evict line.
+// search in cache,return 4 type: hit/pending_hit/miss/reservation_fail. if miss ,idx is the evict line.
 enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) const {
     //assert( m_config.m_write_policy == READ_ONLY );
     unsigned set_index = m_config.set_index(addr);//-get the set No this addr belong to. low bits of addr.
@@ -173,7 +173,7 @@ enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) 
     
     return MISS;
 }
-
+//- 3 params
 enum cache_request_status tag_array::access( new_addr_type addr, unsigned time, unsigned &idx )
 {
     bool wb=false;
@@ -182,7 +182,7 @@ enum cache_request_status tag_array::access( new_addr_type addr, unsigned time, 
     assert(!wb);
     return result;
 }
-
+//- 4 params. return 4 type.
 enum cache_request_status tag_array::access( new_addr_type addr, unsigned time, unsigned &idx, bool &wb, cache_block_t &evicted ) 
 {
     m_access++;
@@ -384,9 +384,9 @@ void mshr_table::display( FILE *fp )const {
 }
 /***************************************************************** Caches *****************************************************************/
 cache_stats::cache_stats(){
-    m_stats.resize(NUM_MEM_ACCESS_TYPE);
+    m_stats.resize(NUM_MEM_ACCESS_TYPE); //- 11:(0-10)
     for(unsigned i=0; i<NUM_MEM_ACCESS_TYPE; ++i){
-        m_stats[i].resize(NUM_CACHE_REQUEST_STATUS, 0);
+        m_stats[i].resize(NUM_CACHE_REQUEST_STATUS, 0); //-4:(0-3)
     }
     m_cache_port_available_cycles = 0; 
     m_cache_data_port_busy_cycles = 0; 
@@ -411,7 +411,7 @@ void cache_stats::inc_stats(int access_type, int access_outcome){
     ///
     if(!check_valid(access_type, access_outcome))
         assert(0 && "Unknown cache access type or access outcome");
-
+    //         0-10         0-3
     m_stats[access_type][access_outcome]++;
 }
 
@@ -452,7 +452,7 @@ cache_stats cache_stats::operator+(const cache_stats &cs){
     /// Overloaded + operator to allow for simple stat accumulation
     ///
     cache_stats ret;
-    for(unsigned type=0; type<NUM_MEM_ACCESS_TYPE; ++type){
+    for(unsigned type=0; type<NUM_MEM_ACCESS_TYPE; ++type){ //-mf type: 
         for(unsigned status=0; status<NUM_CACHE_REQUEST_STATUS; ++status){
             ret(type, status) = m_stats[type][status] + cs(type, status);
         }
@@ -489,7 +489,7 @@ void cache_stats::print_stats(FILE *fout, const char *cache_name) const{
     for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
         for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
             if(m_stats[type][status] > 0){
-                fprintf(fout, "\t%s[%s][%s] = %u\n",
+                fprintf(fout, "\t%s[%12s][%16s] = %6u\n",
                     m_cache_name.c_str(),
                     mem_access_type_str((enum mem_access_type)type),
                     cache_request_status_str((enum cache_request_status)status),
@@ -536,9 +536,9 @@ void cache_stats::get_sub_stats(struct cache_sub_stats &css) const{
     struct cache_sub_stats t_css;
     t_css.clear();
 
-    for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
-        for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {
-            if(status == HIT || status == MISS || status == HIT_RESERVED)
+    for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) { //-all 11 types, for example: INST_ACC_R /GLBAL_ACC_W
+        for (unsigned status = 0; status < NUM_CACHE_REQUEST_STATUS; ++status) {// -all 4 types.
+            if(status == HIT || status == MISS || status == HIT_RESERVED)//- not include "reservation fail"
                 t_css.accesses += m_stats[type][status];
 
             if(status == MISS)
@@ -960,13 +960,13 @@ read_only_cache::access( new_addr_type addr,
     assert(m_config.m_write_policy == READ_ONLY);
     assert(!mf->get_is_write());
     new_addr_type block_addr = m_config.block_addr(addr);// from byte address to block address
-    unsigned cache_index = (unsigned)-1;
+    unsigned cache_index = (unsigned)-1;    // return 4 type: HIT  MISS  RESERVATION_HIT RESERVATION_FAIL
     enum cache_request_status status = m_tag_array->probe(block_addr,cache_index);// visit m_tag_array,get status.
-    enum cache_request_status cache_status = RESERVATION_FAIL;
+    enum cache_request_status cache_status = RESERVATION_FAIL; 
 
     if ( status == HIT ) {
-        cache_status = m_tag_array->access(block_addr,time,cache_index); // update LRU state
-    }else if ( status != RESERVATION_FAIL ) {
+        cache_status = m_tag_array->access(block_addr,time,cache_index); // update LRU state,return 4 type.
+    }else if ( status != RESERVATION_FAIL ) { // pending hit or miss
         if(!miss_queue_full(0)){
             bool do_miss=false; // send mf to next level .
             send_read_request(addr, block_addr, cache_index, mf, time, do_miss, events, true, false);//-9 params
@@ -978,7 +978,7 @@ read_only_cache::access( new_addr_type addr,
             cache_status = RESERVATION_FAIL;
         }
     }
-
+    //-this access record in m_stats.  m_stats[access_type][access_outcome]++;
     m_stats.inc_stats(mf->get_access_type(), m_stats.select_stats_status(status, cache_status));
     return cache_status;
 }

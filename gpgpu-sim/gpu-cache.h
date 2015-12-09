@@ -156,7 +156,6 @@ public:
         }
         switch (rp) {
         case 'L': m_replacement_policy = LRU; break;
-                  r
         case 'F': m_replacement_policy = FIFO; break;
         default: exit_parse_error();
         }
@@ -676,7 +675,7 @@ protected:
     }; 
 
     bandwidth_management m_bandwidth_management; 
-};
+}; //-baseline_cache
 
 /// Read only cache
 class read_only_cache : public baseline_cache {

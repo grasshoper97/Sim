@@ -31,7 +31,7 @@
 #include "visualizer.h"
 #include "gpu-sim.h"
 
-unsigned mem_fetch::sm_next_mf_request_uid=1;
+unsigned mem_fetch::sm_next_mf_request_uid=1; //-static var
 
 mem_fetch::mem_fetch( const mem_access_t &access, 
                       const warp_inst_t *inst,

@@ -144,7 +144,7 @@ void *gpgpu_sim_thread_concurrent(void*)
            printf("GPGPU-Sim: ** STOP simulation thread (no work) **\n");
            fflush(stdout);
         }
-        if(sim_cycles) { // [lean] if gpu pass a cycle ,update the status.
+        if(sim_cycles) { //- if gpu pass a cycle ,update the status.
             g_the_gpu->update_stats();
             print_simulation_time();
         }
@@ -222,7 +222,7 @@ gpgpu_sim *gpgpu_ptx_sim_init_perf()
    g_stream_manager = new stream_manager(g_the_gpu,g_cuda_launch_blocking);
 
    printf("*************************** g_the_gpu/ g_stream_manager newed *********\n\n");//cjllean   
-   g_simulation_starttime = time((time_t *)NULL);
+   g_simulation_starttime = time((time_t *)NULL);//-global vars, inited when g_the_gpu new().
 
    sem_init(&g_sim_signal_start,0,0);
    sem_init(&g_sim_signal_finish,0,0);
@@ -251,7 +251,7 @@ void print_simulation_time()
 {
    time_t current_time, difference, d, h, m, s;
    current_time = time((time_t *)NULL);
-   difference = MAX(current_time - g_simulation_starttime, 1);
+   difference   = MAX(current_time - g_simulation_starttime, 1);//-all kernels accmulated time.
 
    d = difference/(3600*24);
    h = difference/3600 - 24*d;
@@ -259,11 +259,11 @@ void print_simulation_time()
    s = difference - 60*(m + 60*(h + 24*d));
 
    fflush(stderr);
-   printf("\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (%u sec)\n",
+   printf("\ngpgpu_simulation_time     = %u days, %u hrs, %u min, %u sec (total %u sec)\n",
           (unsigned)d, (unsigned)h, (unsigned)m, (unsigned)s, (unsigned)difference );
-   printf("gpgpu_simulation_rate = %u (inst/sec)\n", (unsigned)(g_the_gpu->gpu_tot_sim_insn / difference) );
-   printf("gpgpu_simulation_rate = %u (cycle/sec)\n", (unsigned)(gpu_tot_sim_cycle / difference) );
-   fflush(stdout);
+   printf("gpgpu_simulation_rate     = %u (inst/sec)\n", (unsigned)(g_the_gpu->gpu_tot_sim_insn / difference) );
+   printf("gpgpu_simulation_rate     = %u (cycle/sec)\n\n", (unsigned)(gpu_tot_sim_cycle / difference) );
+   fflush(stdout); //-performence simulate output.
 }
 
 int gpgpu_opencl_ptx_sim_main_perf( kernel_info_t *grid )

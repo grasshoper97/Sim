@@ -1032,14 +1032,14 @@ public:
         simd_function_unit::print(fp);// printf "dispatch" & m_dispatch_reg of father class
         fprintf(fp,"      lantency line: out<-[");//-output the 32 stage lantency line.
         if(m_pipeline_depth<=32) // sp/sfu max latency=32
-            for( int s=0 ;s<m_pipeline_depth;  s++ ) {// depth=32
+            for( unsigned int s=0 ;s<m_pipeline_depth;  s++ ) {// depth=32
                 if( m_pipeline_reg[s]->empty() ) fprintf(fp,".");
                 else                             fprintf(fp,"$");   
             }
         else// ldst max latency = 512, one char president 8 position in array.
-            for(int part=0; part < m_pipeline_depth ;part+=8){//-part is the partation idx.
+            for(unsigned int part=0; part < m_pipeline_depth ;part+=8){//-part is the partation idx.
                 int part_count = 0;
-                for(int s=part ; (s<part +8) && (s< m_pipeline_depth) ; s++)//-s is the array idx.
+                for(unsigned int s=part ; (s<part +8) && (s< m_pipeline_depth) ; s++)//-s is the array idx.
                     if(! m_pipeline_reg[s]->empty() ) 
                         part_count++;
                 if( part_count == 0 ) fprintf(fp,":");
@@ -1047,7 +1047,7 @@ public:
             }
 
         fprintf(fp,"]<-tail\n");
-        for( int s=m_pipeline_depth-1; s>=0; s-- ) {// depth=32
+        for( unsigned int s=m_pipeline_depth-1; s>=0; s-- ) {// depth=32
             if( !m_pipeline_reg[s]->empty() ) { 
                 fprintf(fp,"      %s[%2d] ", m_name.c_str(), s );// only print the !empty slot.
                 m_pipeline_reg[s]->print(fp);// call the inst print()
@@ -1859,6 +1859,9 @@ private:
     // is that the dynamic_warp_id is a running number unique to every warp
     // run on this shader, where the warp_id is the static warp slot.
     unsigned    m_dynamic_warp_id;
+
+    //2015.11.27 add a list to record i-prefetch mf.
+    std::deque< address_type > m_i_prefetch_pc; // deque< unsigned  >
 };// shader_core_ctx
 
 class simt_core_cluster {

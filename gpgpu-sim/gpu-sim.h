@@ -470,7 +470,7 @@ private:
    const struct memory_config      *m_memory_config;
 
    // stats
-   class shader_core_stats  *m_shader_stats;
+   class shader_core_stats  *m_shader_stats; //-only 1, shared by all cores in this gpu.
    class memory_stats_t     *m_memory_stats;
    class power_stat_t *m_power_stats;
    class gpgpu_sim_wrapper *m_gpgpusim_wrapper;
