@@ -194,14 +194,35 @@ void exit_simulation()
 }
 
 extern bool g_cuda_launch_blocking;
-extern long g_mshr_changed;
+
+int  g_prefetch_list_len; //-defined and inited here, used in "shader.cc"
+#include <fstream> 
+#include <cstdlib>
+using namespace std;
+void read_my_config(){ //-read my own global vars.
+    ifstream myfile("my_options.config"); //- open file.
+    if(!myfile){
+        printf("Unable to open myfile\n");
+        exit(1);// -quit sim ,return to OS.
+    }
+    else 
+        printf("Open my_options.config OK!\n");
+    char buffer[256];
+    char option_name[20];
+    int option_value;
+    myfile.getline (buffer,256); 
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_prefetch_list_len = option_value; //- init global var 'g_prefetch_list_len'
+    printf("my_options.config : {%s   %d}      g_prefetch_list_len=%d\n", option_name , option_value,g_prefetch_list_len);
+    myfile.close();
+}
 gpgpu_sim *gpgpu_ptx_sim_init_perf()
 {
-    g_mshr_changed=0;
 	system("echo -e \"\\033[1;33m ******** gpgpu_ptx_sim_init_pref() begin **********\\033[0m\" ");
+   read_my_config();//-read my own vars from file 'my_options.config'
    srand(1);
    print_splash();
-   read_sim_environment_variables();
+   read_sim_environment_variables(); //-read shell vars
    read_parser_environment_variables();
    option_parser_t opp = option_parser_create();
 

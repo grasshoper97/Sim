@@ -31,7 +31,7 @@
 #include <iostream>
 #define MAX_DEFAULT_CACHE_SIZE_MULTIBLIER 4
 
-long g_mshr_changed=0; // global vars. with out 'extern declare 'in other place.
+long g_mshr_changed=0; // global vars. define/init/use only in this file. 
 
 // used to allocate memory that is large enough to adapt the changes in cache size across kernels
 

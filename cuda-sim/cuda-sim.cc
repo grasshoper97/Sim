@@ -1627,7 +1627,7 @@ extern int ptx_debug;
 
 bool g_cuda_launch_blocking = false;
 
-void read_sim_environment_variables() 
+void read_sim_environment_variables() //-read shell vars
 {
    ptx_debug = 0;
    g_debug_execution = 0;
