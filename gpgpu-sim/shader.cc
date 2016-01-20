@@ -628,7 +628,7 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                     m_warp[warp_id].set_done_exit();
             }//-if
 
-            //-Generate a mf to L1I for fetches 16 bytes (2 instructions) and BREAK  if not i-pending.
+            //-Generate a mf to L1I for fetches 16 bytes (2 instructions) and BREAK for, if not i-pending & ibuffer empty
             if( !m_warp[warp_id].functional_done() && !m_warp[warp_id].imiss_pending()&& m_warp[warp_id].ibuffer_empty() ){
                 address_type pc  = m_warp[warp_id].get_pc();
                 address_type ppc = pc + PROGRAM_MEM_START; //-0x F0000 , pc->memory address
@@ -662,7 +662,6 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                     delete mf;//-when instrution back to cache,  fill it to buffer. del the mf.
 
                     //-@@@ instruction pre-fetch next line.
-                    if(  offset_in_block >=0 && offset_in_block <16 ){
                         new_addr_type block_addr = ppc & ~(128-1); //- get cache_line head address.
                         bool is_prefetched = find( m_i_prefetch_pc.begin(), m_i_prefetch_pc.end(), block_addr ) 
                                                 != m_i_prefetch_pc.end();
@@ -684,9 +683,8 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                              if(m_i_prefetch_pc.size() >= 8)
                                   m_i_prefetch_pc.pop_front();
                         }//- if not fetched.
-                    }//-if (0<= offset < 16)
-                    
                     //-@@@
+
                 } else {
                     m_last_warp_fetched=warp_id;
                     assert( status == RESERVATION_FAIL );//-all mshr resource reserved,
@@ -841,15 +839,15 @@ void scheduler_unit::order_by_priority( std::vector< T >& result_list,
 void scheduler_unit::cycle()    //-Core not issue a insn in every cycle.So the warp queue keep unchanged in most time.
 {
     SCHED_DPRINTF( "scheduler_unit::cycle()\n" );
-    bool valid_inst = false;  // there was one warp with a valid instruction to issue (didn't require flush due to control hazard), if all warp wait for L1I, this cycle accmulated into control hazard.
-    bool ready_inst = false;  // of the valid instructions, there was one not waiting for pending register writes
+    bool valid_inst  = false;  // there was one warp with a valid instruction to issue (didn't require flush due to control hazard), if all warp wait for L1I, this cycle accmulated into control hazard.
+    bool ready_inst  = false;  // of the valid instructions, there was one not waiting for pending register writes
     bool issued_inst = false; // of these we issued one
 
     order_warps();//-put the ordered <T> in m_next_cycle_prioritized_warp
 
     for ( std::vector< shd_warp_t* >::const_iterator iter = m_next_cycle_prioritized_warps.begin();
           iter != m_next_cycle_prioritized_warps.end();
-          iter++ ) {
+          iter++ ) {//-check all warps or break at line 954
         // Don't consider warps that are not yet valid
         if ( (*iter) == NULL || (*iter)->done_exit() ) { //-skip warps without init().[NULL is not exict]
             continue;
@@ -951,11 +949,11 @@ void scheduler_unit::cycle()    //-Core not issue a insn in every cycle.So the w
                     m_last_supervised_issued = supervised_iter;//-find the issued warp, and record it.
                 }
             }
-            break;// go out of for{}. only issue a warp in one call.
+            break;// go out of for{}. only issue a warp in one call. 
         }// if 
     }// for(every warp ) line:810
 
-    // issue stall statistics, after trace all warps
+    // issue stall statistics, after trace all warps. whether is issued or not.
     if( !valid_inst ) 
         m_stats->shader_cycle_distro[0]++; // idle or control hazard                            "W0_Idle"
     else if( !ready_inst ) 
@@ -2988,8 +2986,8 @@ void shd_warp_t::print_ibuffer( FILE *fout ) const
 {
     fprintf(fout,"  ibuffer[%2u] : ", m_warp_id );
     for( unsigned i=0; i < IBUFFER_SIZE; i++) {
-        const inst_t *inst = m_ibuffer[i].m_inst; //-not warp_inst_t , is inst_t,base class pointer.
-        if( inst ) inst->print_insn(fout); //the pointer is not Null,print it's PC
+        const inst_t *inst = m_ibuffer[i].m_inst; //-pointer is inst_t,but the instance is ptx_instruction type.
+        if( inst ) inst->print_insn(fout); //-call sub class ptx_instruction::print_insn(), 1.ptx:59) ld.param.u64 %rd1
         else if( m_ibuffer[i].m_valid )     // pointer is Null,then print it's reason.
            fprintf(fout," <invalid instruction> ");
         else fprintf(fout," <empty> ");

@@ -1243,7 +1243,7 @@ public:
    static const ptx_instruction* pc_to_instruction(unsigned pc) 
    {
       if( pc < s_g_pc_to_insn.size() )
-          return s_g_pc_to_insn[pc];
+          return s_g_pc_to_insn[pc]; //- get ptx_instruction *
       else
           return NULL;
    }
@@ -1282,7 +1282,7 @@ private:
 
    symbol_table *m_symtab;
 
-   static std::vector<ptx_instruction*> s_g_pc_to_insn; // a direct mapping from PC to instruction
+   static std::vector<ptx_instruction*> s_g_pc_to_insn; // a direct mapping from PC to ptx_instruction *
    static unsigned sm_next_uid;
 };
 

@@ -1047,7 +1047,7 @@ public:
             }
 
         fprintf(fp,"]<-tail\n");
-        for( unsigned int s=m_pipeline_depth-1; s>=0; s-- ) {// depth=32
+        for( int s=m_pipeline_depth-1; s>=0; s-- ) {// depth=32. s need compare with 0,it should not be a unsigned type.
             if( !m_pipeline_reg[s]->empty() ) { 
                 fprintf(fp,"      %s[%2d] ", m_name.c_str(), s );// only print the !empty slot.
                 m_pipeline_reg[s]->print(fp);// call the inst print()
