@@ -128,7 +128,7 @@ void *gpgpu_sim_thread_concurrent(void*)
             // another kernel, the gpu is not re-initialized and the inter-kernel
             // behaviour may be incorrect. Check that a kernel has finished and
             // no other kernel is currently running.
-            if(g_stream_manager->operation(&sim_cycles) && !g_the_gpu->active())// output sim result
+            if(g_stream_manager->operation(&sim_cycles) && !g_the_gpu->active())//-call m_gpu->print_stats(),output result
                 break; // go out of inner while
 
             if( g_the_gpu->active() ) {
@@ -152,7 +152,7 @@ void *gpgpu_sim_thread_concurrent(void*)
         g_sim_active = false;
         pthread_mutex_unlock(&g_sim_lock);
         outwhile++;
-        fprintf(stderr,"[@@@]out while=%d, in while=%d \n",outwhile,inwhile);
+        fprintf(stderr,"[@@@]out while=%d, in while=%d \n",outwhile,inwhile); //-grep only dule with stdout.this mess can show without disturbed by grep.
     } while( !g_sim_done ); // outer while
 
 	system("echo -e \"\\033[1;33m ******* end of outer while ********\\033[0m\" ");
@@ -195,7 +195,12 @@ void exit_simulation()
 
 extern bool g_cuda_launch_blocking;
 
-int  g_prefetch_list_len; //-defined and inited here, used in "shader.cc"
+int  g_prefetch_rec_max_size=0; //-defined and inited here, used in "shader.cc:604"
+int  g_prefetch_interval    =0; //-defined and inited here, used in "shader.cc:605"
+int  g_prefetch_length      =0; //-defined and inited here, used in "shader.cc:606"
+long g_prefetch_mem         =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_prefetch             =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_fetch                =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
 #include <fstream> 
 #include <cstdlib>
 using namespace std;
@@ -210,11 +215,23 @@ void read_my_config(){ //-read my own global vars.
     char buffer[256];
     char option_name[20];
     int option_value;
+    // get rec len
     myfile.getline (buffer,256); 
     sscanf(buffer,"%s %d" , &option_name , &option_value);
-    g_prefetch_list_len = option_value; //- init global var 'g_prefetch_list_len'
-    printf("my_options.config : {%s   %d}      g_prefetch_list_len=%d\n", option_name , option_value,g_prefetch_list_len);
+    g_prefetch_rec_max_size = option_value; //- init global var 'g_prefetch_rec_max_size'
+    printf("my_options.config :{%s   %d} g_prefetch_rec_max_size=%d\n",option_name,option_value,g_prefetch_rec_max_size);
+    // get begin pos
+    myfile.getline (buffer,256); 
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_prefetch_interval = option_value; //- init global var 'g_prefetch_interval'
+    printf("my_options.config : {%s   %d}      g_prefetch_interval =%d\n", option_name , option_value,g_prefetch_interval);
+    // get prefetch length
+    myfile.getline (buffer,256); 
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_prefetch_length = option_value; //- init global var 'g_prefetch_length'
+    printf("my_options.config : {%s   %d}      g_prefetch_length=%d\n", option_name , option_value,g_prefetch_length);
     myfile.close();
+    printf("rec max size = %d; prefetch interval = %d; prefetch length=%d\n",g_prefetch_rec_max_size,g_prefetch_interval,g_prefetch_length);
 }
 gpgpu_sim *gpgpu_ptx_sim_init_perf()
 {

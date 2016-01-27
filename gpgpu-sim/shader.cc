@@ -600,8 +600,14 @@ void shader_core_ctx::decode() //-to get instruction from fetch_buffer(indeed in
         m_inst_fetch_buffer.m_valid = false; // the buffer is decoded and clear.
     }
 }// decode()
+ 
+extern int g_prefetch_rec_max_size; //-declared here,used in :669,define and init in file"gpgpusim_entrypoint.cc:198 "
+extern int g_prefetch_interval ;       //-declared here,define and init in file"gpgpusim_entrypoint.cc:200 "
+extern int g_prefetch_length ;      //-declared here,define and init in file"gpgpusim_entrypoint.cc:201 "
+extern long g_prefetch_mem ;
+extern long g_prefetch ;
+extern long g_fetch ;
 
-extern int g_prefetch_list_len;//-declared here,define and init in file"gpgpusim_entrypoint.cc:189 "
 void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then drive L1I. L1I get data from dram.[one warp]
 {
     if( !m_inst_fetch_buffer.m_valid ) {//- core i-buffer empty
@@ -650,6 +656,7 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                                               m_memory_config );//-new a mf. in heap
                 std::list<cache_event> events;  //-local vars.
                 enum cache_request_status status = m_L1I->access( (new_addr_type)ppc, mf, gpu_sim_cycle+gpu_tot_sim_cycle,events); //-visit L1I. in this func, mf->m_data_size modified from 16 to line_sz
+                g_fetch++; //-count system fetch ins .
                 //-printf(" <%3d> w[%d]  pc    =%u  status=%d ",mf->get_request_uid(), warp_id, pc, status);
                 
                 if( status == MISS ) {//-when return MISS,the mf has send to low level memory.
@@ -663,40 +670,48 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                     m_inst_fetch_buffer = ifetch_buffer_t(pc,nbytes,warp_id);//-init a local structure(4 member vars),simulate get instructon data from L1I.
                     m_warp[warp_id].set_last_fetch(gpu_sim_cycle);
                     delete mf;//-when instrution back to cache,  fill it to buffer. del the mf.
-
+                    //=====================================================================================
                     //================-@@@ instruction pre-fetch next line. ===============================
-                    
                     if(  offset_in_block >=0 && offset_in_block <16 ){ 
-                        new_addr_type block_addr = ppc & ~(128-1); //- get cache_line head address.
-                        bool is_prefetched;
-                        if(g_prefetch_list_len>0){
-                            is_prefetched = find( m_i_prefetch_pc.begin(), m_i_prefetch_pc.end(), block_addr ) 
-                                                != m_i_prefetch_pc.end();
-                        }
-                        else is_prefetched =false;
+                        new_addr_type cur_block_addr = ppc & ~(128-1); //- get cache_line head address.
+                        for(int r=1; r <= g_prefetch_length; r++){
+                            address_type prefetch_address = cur_block_addr + g_prefetch_interval*128 + r*128;//-p=addr
+                            bool is_prefetched;
+                            if(g_prefetch_rec_max_size > 0){//-check if this line is prefetched by previous or other warp
+                                is_prefetched = find( m_i_prefetch_pc.begin(), m_i_prefetch_pc.end(), prefetch_address ) 
+                                                    != m_i_prefetch_pc.end();
+                            }
+                            else is_prefetched =false;
 
-                        if( !is_prefetched ){ //- if this line's next line not prefetched yet.
-                             mem_access_t pre_acc(INST_ACC_R,ppc+128 ,16 ,false);//- +128,for next line.
-                             mem_fetch *pre_mf = new mem_fetch(pre_acc,
-                                                          NULL,
-                                                          READ_PACKET_SIZE,
-                                                          warp_id,
-                                                          m_sid,
-                                                          m_tpc,
-                                                          m_memory_config );//-new a mf. in heap
-                             enum cache_request_status pre_status =        
-                                 m_L1I->access( (new_addr_type)(ppc+128),pre_mf, gpu_sim_cycle+gpu_tot_sim_cycle,events);
-                             //-printf("==>{%d} w[%d] nextpc=%u status=%d ",pre_mf->get_request_uid(),warp_id, pc+128,pre_status);
-                             if( pre_status == HIT || pre_status ==  RESERVATION_FAIL) 
-                                    delete pre_mf; //-if MISS,mf will move to L2/dram,and back to L1,be delete automaticly.
-                             if(g_prefetch_list_len>0){
-                                 m_i_prefetch_pc.push_back( block_addr ); //-record this line in vector.
-                                 if(m_i_prefetch_pc.size() >= g_prefetch_list_len)
-                                      m_i_prefetch_pc.pop_front(); //- only recored the recent n lines.
-                             }
-                        }//- if (not fetched) 
+                            if( !is_prefetched ){ //- if this line not prefetched yet.
+                                 g_prefetch ++; //-record all prefetch.
+                                 mem_access_t   pre_acc(INST_ACC_R , prefetch_address ,16 ,false);//- +128,for next line.
+                                 mem_fetch      *pre_mf = new mem_fetch(pre_acc,
+                                                              NULL,
+                                                              READ_PACKET_SIZE,
+                                                              warp_id,
+                                                              m_sid,
+                                                              m_tpc,
+                                                              m_memory_config );//-new a mf. in heap
+                                 enum cache_request_status pre_status =        
+                                     m_L1I->access( (new_addr_type)(prefetch_address),pre_mf, gpu_sim_cycle+gpu_tot_sim_cycle,events);
+                                 //  printf("==>{%d} ppc[%x] w[%d] r[%d]nextpc=%u status=%d ",pre_mf->get_request_uid(),
+                                 //        warp_id, r, prefetch_address ,pre_status);
+                                 if( pre_status == HIT || pre_status ==  RESERVATION_FAIL) 
+                                     delete pre_mf; //-if MISS,mf will move to L2/dram,be delete automaticly when back.
+                                 else{ //- only count and record  prefetch requests that put to memory 
+                                     g_prefetch_mem ++; 
+                                     if(g_prefetch_rec_max_size > 0 ){
+                                         m_i_prefetch_pc.push_back( prefetch_address );//-record prefetched line in vector.
+                                         if(m_i_prefetch_pc.size() >= g_prefetch_rec_max_size)
+                                              m_i_prefetch_pc.pop_front(); //- only recored the recent n lines.
+                                     }
+                                 }
+                            }//- if (not fetched) 
+                        } //- for prefetch r times.
                     } //- if (0<= address< 8 )    
                    
+                    //=====================================================================================
                     //================-@@@ instruction pre-fetch next line. ===============================
 
                 } else {//-RESERVATION FAIL

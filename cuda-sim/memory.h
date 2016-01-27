@@ -122,7 +122,7 @@ private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;
    unsigned m_log2_block_size;
-   typedef mem_map<mem_addr_t,mem_storage<BSIZE> > map_t;
+   typedef mem_map<mem_addr_t,mem_storage<BSIZE> > map_t; //-map<addr, class:storage>
    map_t m_data;
    std::map<unsigned,mem_addr_t> m_watchpoints;
 };

@@ -314,7 +314,7 @@ bool mshr_table::probe( new_addr_type block_addr ) const{
 /// Checks if there is space for tracking a new memory access, (check if mshr can accept this addr.)
 bool mshr_table::full( new_addr_type block_addr ) const{
     table::const_iterator i=m_data.find(block_addr);
-    if ( i != m_data.end() )
+    if ( i != m_data.end() ) //-found in map.
         return i->second.m_list.size() >= m_max_merged;// this addr is full.
     else
         return m_data.size() >= m_num_entries;// all line is occupyed by other address.
@@ -968,9 +968,9 @@ read_only_cache::access( new_addr_type addr,
         cache_status = m_tag_array->access(block_addr,time,cache_index); // update LRU state,return 4 type.
     }else if ( status != RESERVATION_FAIL ) { // pending hit or miss
         if(!miss_queue_full(0)){
-            bool do_miss=false; // send mf to next level .
+            bool do_miss=false; //-if send mf to next level.decide by next line call.
             send_read_request(addr, block_addr, cache_index, mf, time, do_miss, events, true, false);//-9 params
-            if(do_miss)
+            if(do_miss)//- do_miss is a  & para .
                 cache_status = MISS;
             else
                 cache_status = RESERVATION_FAIL;
