@@ -201,6 +201,8 @@ int  g_prefetch_length      =0; //-defined and inited here, used in "shader.cc:6
 long g_prefetch_mem         =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
 long g_prefetch             =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
 long g_fetch                =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_fetch_stage_cycles   =0; //-
+
 #include <fstream> 
 #include <cstdlib>
 using namespace std;

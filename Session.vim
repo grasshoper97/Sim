@@ -46,9 +46,9 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +0 .git/COMMIT_EDITMSG
-args .git/COMMIT_EDITMSG
-edit .git/COMMIT_EDITMSG
+badd +0 .gitignore
+args .gitignore
+edit .gitignore
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -79,8 +79,8 @@ setlocal nodiff
 setlocal equalprg=
 setlocal errorformat=
 setlocal expandtab
-if &filetype != 'gitcommit'
-setlocal filetype=gitcommit
+if &filetype != ''
+setlocal filetype=
 endif
 setlocal foldcolumn=0
 setlocal foldenable
@@ -139,8 +139,8 @@ setlocal statusline=
 setlocal suffixesadd=
 setlocal swapfile
 setlocal synmaxcol=3000
-if &syntax != 'gitcommit'
-setlocal syntax=gitcommit
+if &syntax != ''
+setlocal syntax=
 endif
 setlocal tabstop=4
 setlocal tags=
@@ -150,12 +150,12 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1 - ((0 * winheight(0) + 16) / 33)
+let s:l = 1 - ((0 * winheight(0) + 20) / 40)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 1
-normal! 0216l
+normal! 010l
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

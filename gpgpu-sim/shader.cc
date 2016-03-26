@@ -606,10 +606,12 @@ extern int g_prefetch_interval ;       //-declared here,define and init in file"
 extern int g_prefetch_length ;      //-declared here,define and init in file"gpgpusim_entrypoint.cc:201 "
 extern long g_prefetch_mem ;
 extern long g_prefetch ;
-extern long g_fetch ;
+extern long g_fetch ;               //-count the ori architecter access L1I;
+extern long g_fetch_stage_cycles;   //-count all cores cycles in fetch_stage;
 
 void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then drive L1I. L1I get data from dram.[one warp]
 {
+    g_fetch_stage_cycles++;
     if( !m_inst_fetch_buffer.m_valid ) {//- core i-buffer empty
         // find AN active warp with empty instruction buffer &&  is not waiting on a i-cache miss,
         //  get next 1-2 instructions from i-cache...
