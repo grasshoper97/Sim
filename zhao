@@ -1,2 +1,2 @@
- .|xargs grep -n "$*" 
-this is from master
+find .|xargs grep -n "$*" 
+this is modified when merge 
