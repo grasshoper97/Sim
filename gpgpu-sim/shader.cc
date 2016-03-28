@@ -733,6 +733,10 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
     if( m_L1I->access_ready() ) { //-if the MISS mf back from L2/Memory.
         mem_fetch *mf = m_L1I->next_access();//-the MISS mf return form L2 to L1I.
         m_warp[mf->get_wid()].clear_imiss_pending();//-get I data, not pending now. In next cycle, fetch incs will HIT.
+        // next 3 line is add to fix a issue
+        m_inst_fetch_buffer = ifetch_buffer_t(m_warp[mf->get_wid()].get_pc(), mf->get_access_size(), mf->get_wid());
+        m_inst_fetch_buffer.m_valid = true;
+        m_warp[mf->get_wid()].set_last_fetch(gpu_sim_cycle);
         delete mf; //-the MISS mf deleted here. all new--delete correspongding.
     }
 }
