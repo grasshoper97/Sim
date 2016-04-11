@@ -32,11 +32,11 @@
 #include "../abstract_hardware_model.h"
 #include <bitset>
 
-enum mf_type {
-   READ_REQUEST = 0,
-   WRITE_REQUEST,
-   READ_REPLY, // send to shader
-   WRITE_ACK
+enum mf_type { //- the type of memory_fetch , not the type of memory_access
+   READ_REQUEST = 0,    //-read go;
+   WRITE_REQUEST,       //-write to;
+   READ_REPLY,          //-read back;
+   WRITE_ACK            //-write back;
 };
 
 #define MF_TUP_BEGIN(X) enum X {
@@ -92,7 +92,7 @@ public:
    unsigned get_wid() const { return m_wid; }
    bool istexture() const;
    bool isconst() const;
-   enum mf_type get_type() const { return m_type; }
+   enum mf_type get_type() const { return m_type; } //-differ form get_access_type()
    bool isatomic() const;
 
    void set_return_timestamp( unsigned t ) { m_timestamp2=t; }

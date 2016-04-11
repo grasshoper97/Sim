@@ -443,8 +443,8 @@ private:
 ///// data /////
 
    class simt_core_cluster **m_cluster; // array of cluster* pointer
-   class memory_partition_unit **m_memory_partition_unit;
-   class memory_sub_partition **m_memory_sub_partition;
+   class memory_partition_unit **m_memory_partition_unit; //-array of pointer to partition; 6 in fermi;
+   class memory_sub_partition **m_memory_sub_partition; //- array of pointer to sub_partition; 12 in fermi; (2 per partition)
 
    std::vector<kernel_info_t*> m_running_kernels;
    unsigned m_last_issued_kernel;

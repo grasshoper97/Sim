@@ -117,7 +117,8 @@ const char * mem_access_type_str(enum mem_access_type access_type)
    #undef MA_TUP_BEGIN
    #undef MA_TUP
    #undef MA_TUP_END
-
+   //-replace twice, the 2th replace to string using '#', the macro 'MA_TUP_BEGIN'/'MA_TUP'/ is different from .h 
+   // static const char* access_type_str[] = { "GLOBAL_ACC_R", "LOCAL_ACC_R", "CONST_ACC_R", "TEXTURE_ACC_R", "GLOBAL_ACC_W", "LOC    AL_ACC_W", "L1_WRBK_ACC", "L2_WRBK_ACC", "INST_ACC_R", "L1_WR_ALLOC_R", "L2_WR_ALLOC_R", "NUM_MEM_ACCESS_TYPE" };
    assert(access_type < NUM_MEM_ACCESS_TYPE); 
 
    return access_type_str[access_type]; 
@@ -169,7 +170,7 @@ void warp_inst_t::generate_mem_accesses()
 {
     if( empty() || op == MEMORY_BARRIER_OP || m_mem_accesses_created ) 
         return;
-    if ( !((op == LOAD_OP) || (op == STORE_OP)) )
+    if ( !((op == LOAD_OP) || (op == STORE_OP)) ) //-only for 'load' and 'store'
         return; 
     if( m_warp_active_mask.count() == 0 ) 
         return; // predicated off
@@ -181,8 +182,9 @@ void warp_inst_t::generate_mem_accesses()
 
     bool is_write = is_store();
 
-    mem_access_type access_type;
-    switch (space.get_type()) { // space type -> access type
+    mem_access_type access_type; //-mem_access_type is a macro , can't find by ctrl-], can be find use cs string seek ',t'
+                                 //-"src/abstract_hardware_model.h" line 549
+    switch (space.get_type()) {  // space type -> access type
     case const_space:
     case param_space_kernel: 
         access_type = CONST_ACC_R; 
@@ -303,7 +305,7 @@ void warp_inst_t::generate_mem_accesses()
            if(isatomic())
                memory_coalescing_arch_13_atomic(is_write, access_type);
            else
-               memory_coalescing_arch_13(is_write, access_type);
+               memory_coalescing_arch_13(is_write, access_type); //- add a memory access to m_accessq
         } else abort();
 
         break;
@@ -327,7 +329,7 @@ void warp_inst_t::generate_mem_accesses()
             for( unsigned i=0; i < data_size; i++ ) 
                 byte_mask.set(idx+i);
         }
-        for( a=accesses.begin(); a != accesses.end(); ++a ) 
+        for( a=accesses.begin(); a != accesses.end(); ++a )//- add a mem_access_t to m_accessq;
             m_accessq.push_back( mem_access_t(access_type,a->first,cache_block_size,is_write,a->second,byte_mask) );
     }
 
@@ -395,7 +397,7 @@ void warp_inst_t::memory_coalescing_arch_13( bool is_write, mem_access_type acce
             new_addr_type addr = t->first;
             const transaction_info &info = t->second;
 
-            memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size);
+            memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size); //-m_accessq.push_back(mem_access_t
 
         }
     }
@@ -470,14 +472,14 @@ void warp_inst_t::memory_coalescing_arch_13_atomic( bool is_write, mem_access_ty
            for(t=transaction_list.begin(); t!=transaction_list.end(); t++) {
                // For each transaction
                const transaction_info &info = *t;
-               memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size);
+               memory_coalescing_arch_13_reduce_and_send(is_write, access_type, info, addr, segment_size); //-m_accessq.push_back(mem_access_t)
            }
        }
    }
 }
 
 void warp_inst_t::memory_coalescing_arch_13_reduce_and_send( bool is_write, mem_access_type access_type, const transaction_info &info, new_addr_type addr, unsigned segment_size )
-{
+{   // -:in the end:  m_accessq.push_back(mem_access_t)
    assert( (addr & (segment_size-1)) == 0 );
 
    const std::bitset<4> &q = info.chunks;

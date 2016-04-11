@@ -75,7 +75,7 @@ public:
 
    class memory_sub_partition * get_sub_partition(int sub_partition_id) 
    {
-      return m_sub_partition[sub_partition_id]; 
+      return m_sub_partition[sub_partition_id];  //-return the pointer of sub_partition by its id.
    }
 
    // Power model
@@ -152,12 +152,12 @@ public:
    bool busy() const;
 
    void cache_cycle( unsigned cycle );
-
+    //-use inct_L2_queue
    bool full() const;
    void push( class mem_fetch* mf, unsigned long long clock_cycle );
-   class mem_fetch* pop(); 
+   class mem_fetch* pop(); //-use L2_inct_queue
    class mem_fetch* top();
-   void set_done( mem_fetch *mf );
+   void set_done( mem_fetch *mf ); //-use m_request_tracker
 
    unsigned flushL2();
 

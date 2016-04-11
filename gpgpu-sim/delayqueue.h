@@ -36,13 +36,13 @@
 #include "gpu-misc.h"
 
 template <class T>
-struct fifo_data {
+struct fifo_data { //- a T type data field; a pointer to fifo_data
    T *m_data;
    fifo_data *m_next;
 };
 
 template <class T> 
-class fifo_pipeline {
+class fifo_pipeline {//- a user defined Link List. with head/tail pointer.
 public:
    fifo_pipeline(const char* nm, unsigned int minlen, unsigned int maxlen ) 
    {
@@ -67,7 +67,7 @@ public:
       }
    }
 
-   void push(T* data ) 
+   void push(T* data ) //- new a node ,and link it to list.
    {
       assert(m_length < m_max_len);
       if (m_head) {

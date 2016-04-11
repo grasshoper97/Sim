@@ -124,10 +124,10 @@ enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) 
     for (unsigned way=0; way<m_config.m_assoc; way++) { //-ways/sets is simulated with a array. set No main order.
         unsigned index = set_index*m_config.m_assoc+way;//-visit every way of  corresponding set
         cache_block_t *line = &m_lines[index];
-        if (line->m_tag == tag) { // the tag is the same;
+        if (line->m_tag == tag) { //-the tag is the same;
             if ( line->m_status == RESERVED ) {
                 idx = index;
-                return HIT_RESERVED;// data is in the way , pending hit.
+                return HIT_RESERVED;//-data is not return yet, pending hit.
             } else if ( line->m_status == VALID ) {
                 idx = index;
                 return HIT;// hit
@@ -135,16 +135,16 @@ enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) 
                 idx = index;
                 return HIT;// hit
             } else {
-                assert( line->m_status == INVALID );// if not the 3 status above, must be INVALID, empty.
+                assert( line->m_status == INVALID );//-if not the 3 status above, must be INVALID, empty.
             }
-        }// if
-        // the tag of current way != quest.
-        if (line->m_status != RESERVED) {// at least one is not RESERVED, all_reserved = false;means one can be evict.
+        }//-if
+        //-the tag of current way != quest.
+        if (line->m_status != RESERVED) {//-at least one is not RESERVED, all_reserved = false;means one can be evict.
             all_reserved = false;
             if (line->m_status == INVALID) {
-                invalid_line = index; // the cache has a blank line, can be allocte to the quest if miss.
+                invalid_line = index; //- the cache has a blank line, can be allocte to the quest if miss.
             } else {
-                // valid line : keep track of most appropriate replacement candidate. select a cadidate line if miss.
+                //- valid line : keep track of most appropriate replacement candidate. select a cadidate line if miss.
                 if ( m_config.m_replacement_policy == LRU ) {
                     if ( line->m_last_access_time < valid_timestamp ) {
                         valid_timestamp = line->m_last_access_time;
@@ -158,18 +158,18 @@ enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) 
                 }
             }
         }
-    }// end of for
-    // if run to here,must not be (pending)hit.
+    }//-end of for
+    //-if run to here,must not be (pending)hit.
     if ( all_reserved ) {// return with no hit / no allocte a blank line.
         assert( m_config.m_alloc_policy == ON_MISS ); 
-        return RESERVATION_FAIL; // miss and not enough space in cache to allocate on miss
+        return RESERVATION_FAIL; //- miss and not enough space in cache to allocate on miss
     }
-    //if has a invalid candidate, return with it ; or return with a line selected by LRU/FIFO for evict.
+    //-if has a invalid candidate, return with it ; or return with a line selected by LRU/FIFO for evict.
     if ( invalid_line != (unsigned)-1 ) {
         idx = invalid_line;
     } else if ( valid_line != (unsigned)-1) {
         idx = valid_line;
-    } else abort(); // if an unreserved block exists, it is either invalid or replaceable 
+    } else abort(); //- if an unreserved block exists, it is either invalid or replaceable 
     
     return MISS;
 }
@@ -221,16 +221,16 @@ void tag_array::fill( new_addr_type addr, unsigned time )//-cache block : L2 -> 
 {
     assert( m_config.m_alloc_policy == ON_FILL );
     unsigned idx;
-    enum cache_request_status status = probe(addr,idx);
+    enum cache_request_status status = probe(addr,idx); //-get position for this addr;
     assert(status==MISS); // MSHR should have prevented redundant memory request
-    m_lines[idx].allocate( m_config.tag(addr), m_config.block_addr(addr), time );
-    m_lines[idx].fill(time);
+    m_lines[idx].allocate( m_config.tag(addr), m_config.block_addr(addr), time ); //-not allocate line before. reserved
+    m_lines[idx].fill(time);//-valid
 }
 
 void tag_array::fill( unsigned index, unsigned time ) 
 {
     assert( m_config.m_alloc_policy == ON_MISS );
-    m_lines[index].fill(time);
+    m_lines[index].fill(time);//- has been allocate a line before, so fill directly.
 }
 
 void tag_array::flush() 
@@ -347,9 +347,9 @@ void mshr_table::mark_ready( new_addr_type block_addr, bool &has_atomic ){
 /// Returns next ready access( once a mf )
 mem_fetch *mshr_table::next_access(){//-mshr_entry is a fifo. the oldest mf is first seviced.
     assert( access_ready() );
-    new_addr_type block_addr = m_current_response.front();
+    new_addr_type block_addr = m_current_response.front(); //-get a addr
     assert( !m_data[block_addr].m_list.empty() );
-    mem_fetch *result = m_data[block_addr].m_list.front();
+    mem_fetch *result = m_data[block_addr].m_list.front();  //-get the oldest mf of this addr
     m_data[block_addr].m_list.pop_front();//-pop the oldest mf of this addr from mshr 
     m_mf_num-- ;
     g_mshr_changed = g_mshr_changed +1000 ;//-global var for debug
@@ -653,11 +653,11 @@ void baseline_cache::cycle(){
     if ( !m_miss_queue.empty() ) {
         mem_fetch *mf = m_miss_queue.front();
         if ( !m_memport->full(mf->size(),mf->get_is_write()) ) {
-            m_miss_queue.pop_front();// mf sent from L1 cache to low level .
-            m_memport->push(mf);
+            m_miss_queue.pop_front();//-move mf from miss Q 
+            m_memport->push(mf); //-into ICNT(for L1), or into Dram(for L2);
         }
     }
-    bool data_port_busy = !m_bandwidth_management.data_port_free(); 
+    bool data_port_busy = !m_bandwidth_management.data_port_free(); //-occupied this port for N cycles;
     bool fill_port_busy = !m_bandwidth_management.fill_port_free(); 
     m_stats.sample_cache_port_utility(data_port_busy, fill_port_busy); 
     m_bandwidth_management.replenish_port_bandwidth(); 
@@ -666,22 +666,22 @@ void baseline_cache::cycle(){
 /// Interface for response from lower memory level (model bandwidth restictions in caller)
 void baseline_cache::fill(mem_fetch *mf, unsigned time){//- mf insert to cache
     extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);//- a map<*mf , struct > var
-    assert( e != m_extra_mf_fields.end() );
+    assert( e != m_extra_mf_fields.end() ); //- mf must can be find in 'm_extra_mf_fields';
     assert( e->second.m_valid );
     mf->set_data_size( e->second.m_data_size );
     if ( m_config.m_alloc_policy == ON_MISS )
-        m_tag_array->fill(e->second.m_cache_index,time);//- this fill(addr) only for ON_MISS
+        m_tag_array->fill(e->second.m_cache_index,time);//- call fill() only;
     else if ( m_config.m_alloc_policy == ON_FILL )
-        m_tag_array->fill(e->second.m_block_addr,time);//- this fill( idx ) only for ON_FILL
+        m_tag_array->fill(e->second.m_block_addr,time);//- call probe(), allocate(), and fill();
     else abort();
     bool has_atomic = false;
-    m_mshrs.mark_ready(e->second.m_block_addr, has_atomic);
+    m_mshrs.mark_ready(e->second.m_block_addr, has_atomic); //-fill this 'addr' to mshr's m_current_response
     if (has_atomic) {
         assert(m_config.m_alloc_policy == ON_MISS);
         cache_block_t &block = m_tag_array->get_block(e->second.m_cache_index);
         block.m_status = MODIFIED; // mark line as dirty for atomic operation
     }
-    m_extra_mf_fields.erase(mf);
+    m_extra_mf_fields.erase(mf); //-remove this pointer form map;
     m_bandwidth_management.use_fill_port(mf); 
 }
 
@@ -708,8 +708,17 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 
 	bool wb=false;  //-add 1
 	cache_block_t e;//-add 2
-	send_read_request(addr, block_addr, cache_index, mf, time, do_miss, wb, e, events, read_only, wa);
+	send_read_request(addr, block_addr, cache_index, mf, time, do_miss, wb, e, events, read_only, wa); //-11 params
 }
+
+//- 2016.04.05 add to show mf status string 
+#define MF_TUP_BEGIN(X) static const char* Status_str[] = {
+#define MF_TUP(X) #X
+#define MF_TUP_END(X) };
+#include "mem_fetch_status.tup"
+#undef MF_TUP_BEGIN
+#undef MF_TUP
+#undef MF_TUP_END
 
 /// Read miss handler. Check MSHR hit or MSHR available, 11 params ( bool &wb, cache_block_t &evicted) added.
 void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_addr, unsigned cache_index, mem_fetch *mf,
@@ -717,7 +726,7 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 
     bool mshr_hit = m_mshrs.probe(block_addr);
     bool mshr_avail = !m_mshrs.full(block_addr);
-    if ( mshr_hit && mshr_avail ) {
+    if ( mshr_hit && mshr_avail ) { //- pending hit.
     	if(read_only)
     		m_tag_array->access(block_addr,time,cache_index);
     	else
@@ -725,7 +734,7 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 
         m_mshrs.add(block_addr,mf);
         do_miss = true;
-    } else if ( !mshr_hit && mshr_avail && (m_miss_queue.size() < m_config.m_miss_queue_size) ) {
+    } else if ( !mshr_hit && mshr_avail && (m_miss_queue.size() < m_config.m_miss_queue_size) ) {//- miss
     	if(read_only)
     		m_tag_array->access(block_addr,time,cache_index);
     	else
@@ -734,8 +743,10 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
         m_mshrs.add(block_addr,mf);
         m_extra_mf_fields[mf] = extra_mf_fields(block_addr,cache_index, mf->get_data_size());
         mf->set_data_size( m_config.get_line_sz() );// in cache ,get a line size once.
-        m_miss_queue.push_back(mf); // miss, send to miss queue, wait next level to return 
+        m_miss_queue.push_back(mf); // miss, send to miss queue, wait next level to return;** m_miss_queue.push_back(mf);
         mf->set_status(m_miss_queue_status,time);
+        //- 2016.04.05
+    printf("@@@@ send_read_request(): address: %8X, status:(%2d) %s, %s\n",mf->get_addr() , m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
         if(!wa)
         	events.push_back(READ_REQUEST_SENT);
         do_miss = true;
@@ -746,8 +757,10 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 /// Sends write request to lower level memory (write or writeback)
 void data_cache::send_write_request(mem_fetch *mf, cache_event request, unsigned time, std::list<cache_event> &events){
     events.push_back(request);
-    m_miss_queue.push_back(mf);
+    m_miss_queue.push_back(mf); //--------------------- m_miss_queue.push_back();
     mf->set_status(m_miss_queue_status,time);
+    //- 2016.04.05
+    printf("@@@@ send_write_request(): address: %8X, status:(%2d) %s, %s\n",mf->get_addr() , m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
 }
 
 
@@ -820,24 +833,25 @@ data_cache::wr_miss_wa( new_addr_type addr,
     bool mshr_hit = m_mshrs.probe(block_addr);
     bool mshr_avail = !m_mshrs.full(block_addr);
     if(miss_queue_full(2) 
-        || (!(mshr_hit && mshr_avail) 
-        && !(!mshr_hit && mshr_avail 
-        && (m_miss_queue.size() < m_config.m_miss_queue_size))))
+            || (!(mshr_hit && mshr_avail) 
+            && !(!mshr_hit && mshr_avail 
+            && (m_miss_queue.size() < m_config.m_miss_queue_size))))
         return RESERVATION_FAIL;
 
-    send_write_request(mf, WRITE_REQUEST_SENT, time, events);
+    send_write_request(mf, WRITE_REQUEST_SENT, time, events); //-<send 1, write >
+
     // Tries to send write allocate request, returns true on success and false on failure
     //if(!send_write_allocate(mf, addr, block_addr, cache_index, time, events))
     //    return RESERVATION_FAIL;
 
-    const mem_access_t *ma = new  mem_access_t( m_wr_alloc_type,
+    const mem_access_t *ma = new  mem_access_t( m_wr_alloc_type,    //-new mem_access_t
                         mf->get_addr(),
                         mf->get_data_size(),
                         false, // Now performing a read
                         mf->get_access_warp_mask(),
                         mf->get_access_byte_mask() );
 
-    mem_fetch *n_mf = new mem_fetch( *ma,
+    mem_fetch *n_mf = new mem_fetch( *ma,               //- new mem_fetch
                     NULL,
                     mf->get_ctrl_size(),
                     mf->get_wid(),
@@ -849,18 +863,21 @@ data_cache::wr_miss_wa( new_addr_type addr,
     bool wb = false;
     cache_block_t evicted;
 
-    // Send read request resulting from write miss
+    //--------------- < Send 2> read request resulting from write miss
     send_read_request(addr, block_addr, cache_index, n_mf, time, do_miss, wb,
         evicted, events, false, true);
 
     if( do_miss ){
         // If evicted block is modified and not a write-through
         // (already modified lower level)
-        if( wb && (m_config.m_write_policy != WRITE_THROUGH) ) { 
-            mem_fetch *wb = m_memfetch_creator->alloc(evicted.m_block_addr,
+        if( wb && (m_config.m_write_policy != WRITE_THROUGH) ) { //- 2016.04.05 ,modify 'wb' to 'wb_mf'
+            mem_fetch *wb_mf = m_memfetch_creator->alloc(evicted.m_block_addr, 
                 m_wrbk_type,m_config.get_line_sz(),true);
-            m_miss_queue.push_back(wb);
-            wb->set_status(m_miss_queue_status,time);
+            //----------------- < send 3, push_back directly >
+            m_miss_queue.push_back(wb_mf);
+            wb_mf->set_status(m_miss_queue_status,time);
+            //- 2016.04.05
+            printf("@@@@ wr_miss_wa():wb_mf  address: %8X, status:(%2d) %s, %s\n",wb_mf->get_addr() , m_miss_queue_status, Status_str[m_miss_queue_status], m_name.c_str() );
         }
         return MISS;
     }
@@ -880,8 +897,8 @@ data_cache::wr_miss_no_wa( new_addr_type addr,
     if(miss_queue_full(0))
         return RESERVATION_FAIL; // cannot handle request this cycle
 
-    // on miss, generate write through (no write buffering -- too many threads for that)
-    send_write_request(mf, WRITE_REQUEST_SENT, time, events);
+    // <send 1, write > on miss, generate write through (no write buffering -- too many threads for that)
+    send_write_request(mf, WRITE_REQUEST_SENT, time, events); 
 
     return MISS;
 }
@@ -930,6 +947,7 @@ data_cache::rd_miss_base( new_addr_type addr,
     bool do_miss = false;
     bool wb = false;
     cache_block_t evicted;
+    //---------------- <send 1, read>
     send_read_request( addr,
                        block_addr,
                        cache_index,
@@ -941,7 +959,8 @@ data_cache::rd_miss_base( new_addr_type addr,
         if(wb && (m_config.m_write_policy != WRITE_THROUGH) ){ 
             mem_fetch *wb = m_memfetch_creator->alloc(evicted.m_block_addr,
                 m_wrbk_type,m_config.get_line_sz(),true);
-        send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);
+        //------------<send 2, write>    
+        send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);  //-read op can invoke a write op;
     }
         return MISS;
     }
@@ -1001,21 +1020,21 @@ data_cache::process_tag_probe( bool wr,
     // branches resulting from many cache configuration options.
     cache_request_status access_status = probe_status;
     if(wr){ // Write
-        if(probe_status == HIT){
+        if(probe_status == HIT){//-Hit
             access_status = (this->*m_wr_hit)( addr,
                                       cache_index,
                                       mf, time, events, probe_status );
-        }else if ( probe_status != RESERVATION_FAIL ) {
+        }else if ( probe_status != RESERVATION_FAIL ) {//-Miss
             access_status = (this->*m_wr_miss)( addr,
                                        cache_index,
                                        mf, time, events, probe_status );
         }
     }else{ // Read
-        if(probe_status == HIT){
+        if(probe_status == HIT){ //-Hit
             access_status = (this->*m_rd_hit)( addr,
                                       cache_index,
                                       mf, time, events, probe_status );
-        }else if ( probe_status != RESERVATION_FAIL ) {
+        }else if ( probe_status != RESERVATION_FAIL ) { //-Miss
             access_status = (this->*m_rd_miss)( addr,
                                        cache_index,
                                        mf, time, events, probe_status );
@@ -1044,7 +1063,7 @@ data_cache::access( new_addr_type addr,
     enum cache_request_status probe_status
         = m_tag_array->probe( block_addr, cache_index ); // search in cache tag[]
     enum cache_request_status access_status
-        = process_tag_probe( wr, probe_status, addr, cache_index, mf, time, events );//-modify cache tag array.
+        = process_tag_probe( wr, probe_status, addr, cache_index, mf, time, events );//-modify cache tag array. add mf to cache's miss queue if miss.
     m_stats.inc_stats(mf->get_access_type(),
         m_stats.select_stats_status(probe_status, access_status));
     return access_status;
@@ -1054,24 +1073,24 @@ data_cache::access( new_addr_type addr,
 /// It is write-evict (global) or write-back (local) at the
 /// granularity of individual blocks (Set by GPGPU-Sim configuration file)
 /// (the policy used in fermi according to the CUDA manual)
-int show_addr_num=0;
+int show_addr_num=0;  //-my custom global var.
 enum cache_request_status
 l1_cache::access( new_addr_type addr,
                   mem_fetch *mf,
                   unsigned time,
                   std::list<cache_event> &events )
-{ //cjllean
+{   //cjllean. to show L1 access.
 	/*if(show_addr_num<30){
 		//system("echo -e \"\\033[1;36m * l1_cache::access() *\\033[0m\" ");
 	    printf("\t\t@L1D no=[%d] mf:{%s} addr=%llx addr=%llx  \n",show_addr_num, 
     		mem_access_type_str(mf->get_access_type()), mf->get_addr(), addr);		
 		show_addr_num++;
 	}*/
-    enum cache_request_status status= data_cache::access( addr, mf, time, events );
-    //bool wr = mf->get_is_write();
+    enum cache_request_status status= data_cache::access( addr, mf, time, events ); //- call function of base class
+    //bool my_wr = mf->get_is_write();
 	// addr len isw l1_status
     //printf("\t%u \t%lld \t%llx \t%d \t %d \t %d \t@@@\n",
-			//mf->get_sid(), m_config.block_addr(addr),m_config.block_addr(addr), mf->get_data_size(),wr,status);	
+			//mf->get_sid(), m_config.block_addr(addr),m_config.block_addr(addr), mf->get_data_size(),my_wr,status);	
 	return status;
 }
 

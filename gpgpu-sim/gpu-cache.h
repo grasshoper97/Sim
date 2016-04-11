@@ -52,7 +52,7 @@ enum cache_request_status  { // 4 status
     NUM_CACHE_REQUEST_STATUS
 };
 
-enum cache_event {
+enum cache_event { //-3 event: write_back ; read ; write;
     WRITE_BACK_REQUEST_SENT,
     READ_REQUEST_SENT,
     WRITE_REQUEST_SENT
@@ -154,12 +154,12 @@ public:
             }
             exit_parse_error();//-at least 11 params. [11-14]
         }
-        switch (rp) {
+        switch (rp) { //-replace policy
         case 'L': m_replacement_policy = LRU; break;
         case 'F': m_replacement_policy = FIFO; break;
         default: exit_parse_error();
         }
-        switch (wp) {
+        switch (wp) { //-write policy
         case 'R': m_write_policy = READ_ONLY; break;
         case 'B': m_write_policy = WRITE_BACK; break;
         case 'T': m_write_policy = WRITE_THROUGH; break;
@@ -167,12 +167,12 @@ public:
         case 'L': m_write_policy = LOCAL_WB_GLOBAL_WT; break;
         default: exit_parse_error();
         }
-        switch (ap) {
+        switch (ap) { //-allocate policy
         case 'm': m_alloc_policy = ON_MISS; break;
         case 'f': m_alloc_policy = ON_FILL; break;
         default: exit_parse_error();
         }
-        switch(wap){//- reorder for read easily.
+        switch(wap){//-write allocate policy
         case 'W': m_write_alloc_policy = WRITE_ALLOCATE; break;
         case 'N': m_write_alloc_policy = NO_WRITE_ALLOCATE; break;
         default: exit_parse_error();
@@ -649,7 +649,7 @@ protected:
     		unsigned time, bool &do_miss, bool &wb, cache_block_t &evicted, std::list<cache_event> &events, bool read_only, bool wa);
 
     /// Sub-class containing all metadata for port bandwidth management 
-    class bandwidth_management // inner class
+    class bandwidth_management //-inner class
     {
     public: 
         bandwidth_management(cache_config &config); 
@@ -670,7 +670,7 @@ protected:
     protected: 
         const cache_config &m_config; 
 
-        int m_data_port_occupied_cycles; //< Number of cycle that the data port remains used 
+        int m_data_port_occupied_cycles; //< Number of cycle that the data port remains used , next N cycle is occupied.
         int m_fill_port_occupied_cycles; //< Number of cycle that the fill port remains used 
     }; 
 
@@ -713,19 +713,19 @@ public:
     {
         m_memfetch_creator=mfcreator;
 
-        // Set read hit function
-        m_rd_hit = &data_cache::rd_hit_base;
+        // 1:Set read hit function
+        m_rd_hit = &data_cache::rd_hit_base; //-function pointer = & function name
 
-        // Set read miss function
+        // 2:Set read miss function
         m_rd_miss = &data_cache::rd_miss_base;
 
-        // Set write hit function
+        // 3:Set write hit function
         switch(m_config.m_write_policy){
-        // READ_ONLY is now a separate cache class, config is deprecated
+                // READ_ONLY is now a separate cache class, config is deprecated
         case READ_ONLY:
             assert(0 && "Error: Writable Data_cache set as READ_ONLY\n");
             break; 
-        case WRITE_BACK: m_wr_hit = &data_cache::wr_hit_wb; break;
+        case WRITE_BACK: m_wr_hit = &data_cache::wr_hit_wb; break;  //- L2 cache default config
         case WRITE_THROUGH: m_wr_hit = &data_cache::wr_hit_wt; break;
         case WRITE_EVICT: m_wr_hit = &data_cache::wr_hit_we; break;
         case LOCAL_WB_GLOBAL_WT:
@@ -736,9 +736,9 @@ public:
             break; // Need to set a write hit function
         }
 
-        // Set write miss function
+        // 4:Set write miss function
         switch(m_config.m_write_alloc_policy){
-        case WRITE_ALLOCATE: m_wr_miss = &data_cache::wr_miss_wa; break;
+        case WRITE_ALLOCATE: m_wr_miss = &data_cache::wr_miss_wa; break;//- L2 cache default config
         case NO_WRITE_ALLOCATE: m_wr_miss = &data_cache::wr_miss_no_wa; break;
         default:
             assert(0 && "Error: Must set valid cache write miss policy\n");
@@ -797,7 +797,7 @@ protected:
     // to the functions below each grouping
     /******* Write-hit configs *******/
     enum cache_request_status
-        (data_cache::*m_wr_hit)( new_addr_type addr,
+        (data_cache::*m_wr_hit)( new_addr_type addr,    //-a write hit pointer->
                                  unsigned cache_index,
                                  mem_fetch *mf,
                                  unsigned time,
@@ -833,13 +833,12 @@ protected:
                                    mem_fetch *mf,
                                    unsigned time,
                                    std::list<cache_event> &events,
-                                   enum cache_request_status status );
-        // global write-evict, local write-back
+                                   enum cache_request_status status ); // global write-evict, local write-back
 
 
     /******* Write-miss configs *******/
-    enum cache_request_status
-        (data_cache::*m_wr_miss)( new_addr_type addr,
+    enum cache_request_status          
+        (data_cache::*m_wr_miss)( new_addr_type addr, //- write miss pointer->
                                   unsigned cache_index,
                                   mem_fetch *mf,
                                   unsigned time,
@@ -865,7 +864,7 @@ protected:
     // Currently no separate functions for reads
     /******* Read-hit configs *******/
     enum cache_request_status
-        (data_cache::*m_rd_hit)( new_addr_type addr,
+        (data_cache::*m_rd_hit)( new_addr_type addr,    //-read hit pointer->
                                  unsigned cache_index,
                                  mem_fetch *mf,
                                  unsigned time,
@@ -881,7 +880,7 @@ protected:
 
     /******* Read-miss configs *******/
     enum cache_request_status
-        (data_cache::*m_rd_miss)( new_addr_type addr,
+        (data_cache::*m_rd_miss)( new_addr_type addr, //-read miss pointer->
                                   unsigned cache_index,
                                   mem_fetch *mf,
                                   unsigned time,
@@ -921,7 +920,7 @@ protected:
               cache_config &config,
               int core_id,
               int type_id,
-              mem_fetch_interface *memport,
+              mem_fetch_interface *memport, //- interface to ICNT
               mem_fetch_allocator *mfcreator,
               enum mem_fetch_status status,
               tag_array* new_tag_array )

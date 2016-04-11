@@ -560,18 +560,6 @@ MA_TUP_BEGIN( mem_access_type ) \
    MA_TUP( L2_WR_ALLOC_R ), \
    MA_TUP( NUM_MEM_ACCESS_TYPE ) \
 MA_TUP_END( mem_access_type )
-// GLOBAL_ACC_R          0  
-// LOCAL_ACC_R           1  
-// CONST_ACC_R           2  
-// TEXTURE_ACC_R         3  
-// GLOBAL_ACC_W          4  
-// LOCAL_ACC_W           5  
-// L1_WRBK_ACC           6  
-// L2_WRBK_ACC           7  
-// INST_ACC_R            8  
-// L1_WR_ALLOC_R         9  
-// L2_WR_ALLOC_R        10 
-// NUM_MEM_ACCESS_TYPE  11 
 #define MA_TUP_BEGIN(X) enum X {
 #define MA_TUP(X) X
 #define MA_TUP_END(X) };
@@ -579,6 +567,21 @@ MEM_ACCESS_TYPE_TUP_DEF
 #undef MA_TUP_BEGIN
 #undef MA_TUP
 #undef MA_TUP_END
+//-after twice replace, get the enum below: (The macro 'MEM_ACCESS_TYPE_TUP_DEF' used in .cc file also.)
+// enum mem_access_type {
+//     GLOBAL_ACC_R   ,       0  
+//     LOCAL_ACC_R    ,       1  
+//     CONST_ACC_R    ,       2  
+//     TEXTURE_ACC_R  ,       3  
+//     GLOBAL_ACC_W   ,       4  
+//     LOCAL_ACC_W    ,       5  
+//     L1_WRBK_ACC    ,       6 ? 
+//     L2_WRBK_ACC    ,       7 ? 
+//     INST_ACC_R     ,       8  
+//     L1_WR_ALLOC_R  ,       9 ? 
+//     L2_WR_ALLOC_R  ,      10 ?
+//     NUM_MEM_ACCESS_TYPE   11 
+// };
 
 const char * mem_access_type_str(enum mem_access_type access_type); 
 
@@ -966,7 +969,7 @@ protected:
     bool    m_per_scalar_thread_valid;
     std::vector<per_thread_info>    m_per_scalar_thread;//-vec < thread info>
     bool    m_mem_accesses_created;
-    std::list<mem_access_t>     m_accessq;
+    std::list<mem_access_t>     m_accessq; //- object list, not pointer list;
 
     static unsigned     sm_next_uid;
 };

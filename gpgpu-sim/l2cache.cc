@@ -68,9 +68,9 @@ memory_partition_unit::memory_partition_unit( unsigned partition_id,
     m_dram = new dram_t(m_id,m_config,m_stats,this);
 
     m_sub_partition = new memory_sub_partition*[m_config->m_n_sub_partition_per_memory_channel];// array of pointer 
-    for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel; p++) {
+    for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel; p++) { //- 2 sub partition per channel
         unsigned sub_partition_id = m_id * m_config->m_n_sub_partition_per_memory_channel + p; 
-        m_sub_partition[p] = new memory_sub_partition(sub_partition_id, m_config, stats); 
+        m_sub_partition[p] = new memory_sub_partition(sub_partition_id, m_config, stats); //-new sub_partitions;
     }
 }
 
@@ -202,11 +202,11 @@ void memory_partition_unit::dram_cycle()
         int dest_spid = global_sub_partition_id_to_local_id(dest_global_spid); 
         assert(m_sub_partition[dest_spid]->get_id() == dest_global_spid); 
         if (!m_sub_partition[dest_spid]->dram_L2_queue_full()) {
-            if( mf_return->get_access_type() == L1_WRBK_ACC ) {
+            if( mf_return->get_access_type() == L1_WRBK_ACC ) { //- L1_WRBK_ACC delete directly?
                 m_sub_partition[dest_spid]->set_done(mf_return); 
                 delete mf_return;
             } else {
-                m_sub_partition[dest_spid]->dram_L2_queue_push(mf_return);
+                m_sub_partition[dest_spid]->dram_L2_queue_push(mf_return); //- dram->returnq to dram_L2 Q
                 mf_return->set_status(IN_PARTITION_DRAM_TO_L2_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
                 m_arbitration_metadata.return_credit(dest_spid); 
                 MEMPART_DPRINTF("mem_fetch request %p return from dram to sub partition %d\n", mf_return, dest_spid); 
@@ -221,7 +221,7 @@ void memory_partition_unit::dram_cycle()
     m_dram->dram_log(SAMPLELOG);   
 
     if( !m_dram->full() ) {
-        // L2->DRAM queue to DRAM latency queue
+        // L2_DRAM queue --> DRAM latency queue
         // Arbitrate among multiple L2 subpartitions 
         int last_issued_partition = m_arbitration_metadata.last_borrower(); 
         for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel; p++) {
@@ -307,15 +307,15 @@ memory_sub_partition::memory_sub_partition( unsigned sub_partition_id,
     m_L2interface = new L2interface(this);
     m_mf_allocator = new partition_mf_allocator(config);
 
-    if(!m_config->m_L2_config.disabled())
+    if(!m_config->m_L2_config.disabled()) //-new L2 cache here; memory interface used to oprate m_L2_dram_queue.
        m_L2cache = new l2_cache(L2c_name,m_config->m_L2_config,-1,-1,m_L2interface,m_mf_allocator,IN_PARTITION_L2_MISS_QUEUE);
 
-    unsigned int icnt_L2;
+    unsigned int icnt_L2; //- link list max length.
     unsigned int L2_dram;
     unsigned int dram_L2;
     unsigned int L2_icnt;
     sscanf(m_config->gpgpu_L2_queue_config,"%u:%u:%u:%u", &icnt_L2,&L2_dram,&dram_L2,&L2_icnt );
-    m_icnt_L2_queue = new fifo_pipeline<mem_fetch>("icnt-to-L2",0,icnt_L2); 
+    m_icnt_L2_queue = new fifo_pipeline<mem_fetch>("icnt-to-L2",0,icnt_L2); //- use heap space, must delete manual;
     m_L2_dram_queue = new fifo_pipeline<mem_fetch>("L2-to-dram",0,L2_dram);
     m_dram_L2_queue = new fifo_pipeline<mem_fetch>("dram-to-L2",0,dram_L2);
     m_L2_icnt_queue = new fifo_pipeline<mem_fetch>("L2-to-icnt",0,L2_icnt);
@@ -332,12 +332,12 @@ memory_sub_partition::~memory_sub_partition()
     delete m_L2interface;
 }
 
-void memory_sub_partition::cache_cycle( unsigned cycle )
+void memory_sub_partition::cache_cycle( unsigned cycle ) //icnt <==> L2 <==> Dram
 {
-    // L2 -> responses Queue
+    //  L2_icnt Q <-- L2 mshr's m_current_response
     if( !m_config->m_L2_config.disabled()) {
        if ( m_L2cache->access_ready() && !m_L2_icnt_queue->full() ) {//-L2 has back mf && queqe not all full.
-           mem_fetch *mf = m_L2cache->next_access();
+           mem_fetch *mf = m_L2cache->next_access(); //-put mf from mshr's resonse Q to L2_icnt Q
            if(mf->get_access_type() != L2_WR_ALLOC_R){ // Don't pass write allocate read request back to upper level cache
 				mf->set_reply();
 				mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
@@ -349,13 +349,13 @@ void memory_sub_partition::cache_cycle( unsigned cycle )
        }
     }
 
-    // DRAM to L2 (texture) and icnt (not texture)
+    //  L2 & mshr <-- Dram_L2 Q
     if ( !m_dram_L2_queue->empty() ) {
         mem_fetch *mf = m_dram_L2_queue->top();
         if ( !m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf) ) {
             if (m_L2cache->fill_port_free()) {
                 mf->set_status(IN_PARTITION_L2_FILL_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-                m_L2cache->fill(mf,gpu_sim_cycle+gpu_tot_sim_cycle);//-move to L2
+                m_L2cache->fill(mf,gpu_sim_cycle+gpu_tot_sim_cycle);//-move to L2 & mshr's m_current_response
                 m_dram_L2_queue->pop();
             }
         } else if ( !m_L2_icnt_queue->full() ) {
@@ -365,22 +365,22 @@ void memory_sub_partition::cache_cycle( unsigned cycle )
         }
     }
 
-    // prior L2 misses inserted into m_L2_dram_queue here
+    //  L2 misses Q -->  m_L2_dram_queue
     if( !m_config->m_L2_config.disabled() )
        m_L2cache->cycle();
     
-    // new L2 texture accesses and/or non-texture accesses
-    if ( !m_L2_dram_queue->full() && !m_icnt_L2_queue->empty() ) {
-        mem_fetch *mf = m_icnt_L2_queue->top();
+    //- icnt_L2 Q -->access L2--> L2_icnt Q(hit) or L2_miss Q(miss)
+    if ( !m_L2_dram_queue->full() && !m_icnt_L2_queue->empty() ) {//-has quest in income Q, and has room to dram Q;
+        mem_fetch *mf = m_icnt_L2_queue->top(); //- get a mf from icnt_L2 income queue ;
         if ( !m_config->m_L2_config.disabled() &&
               ( (m_config->m_L2_texure_only && mf->istexture()) || (!m_config->m_L2_texure_only) )
            ) {
             // L2 is enabled and access is for L2   ,// access L2,return Miss/Hit/Reservation
             bool output_full = m_L2_icnt_queue->full(); 
             bool port_free = m_L2cache->data_port_free(); 
-            if ( !output_full && port_free ) {
+            if ( !output_full && port_free ) { //- why need output Q not full?
                 std::list<cache_event> events;
-                enum cache_request_status status = m_L2cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);
+                enum cache_request_status status = m_L2cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events); //- put mf to miss Q if miss;
                 bool write_sent = was_write_sent(events);
                 bool read_sent = was_read_sent(events);
 
@@ -394,17 +394,17 @@ void memory_sub_partition::cache_cycle( unsigned cycle )
                         } else {
                             mf->set_reply();
                             mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-                            m_L2_icnt_queue->push(mf);//- L2 hit,move back to icnt
+                            m_L2_icnt_queue->push(mf);//- L2 hit,(1) copy to L2->icnt Q;
                         }
-                        m_icnt_L2_queue->pop();
+                        m_icnt_L2_queue->pop(); //- (2) and remove from icnt->L2 Q;
                     } else {
-                        assert(write_sent);
+                        assert(write_sent); 
                         m_icnt_L2_queue->pop();
                     }
-                } else if ( status != RESERVATION_FAIL ) {
+                } else if ( status != RESERVATION_FAIL ) { //- hit_reserve  or  miss
                     // L2 cache accepted request
-                    m_icnt_L2_queue->pop();
-                } else {
+                    m_icnt_L2_queue->pop(); //- move out of icnt->L2 Q and didn't save???
+                } else { // == Reservation_fail
                     assert(!write_sent);
                     assert(!read_sent);
                     // L2 cache lock-up: will try again next cycle
@@ -413,12 +413,12 @@ void memory_sub_partition::cache_cycle( unsigned cycle )
         } else {
             // L2 is disabled or non-texture access to texture-only L2
             mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-            m_L2_dram_queue->push(mf);// move from icnt-L2 Q to L2-dram Q. Not access L2 cache.
+            m_L2_dram_queue->push(mf);//-move from icnt-L2 Q to L2-dram Q. Not access L2 cache.
             m_icnt_L2_queue->pop();
         }
     }
 
-    // ROP delay queue
+    // ROP Q --> icnt_L2 Q
     if( !m_rop.empty() && (cycle >= m_rop.front().ready_cycle) && !m_icnt_L2_queue->full() ) {
         mem_fetch* mf = m_rop.front().req;
         m_rop.pop();
@@ -542,17 +542,17 @@ bool memory_sub_partition::busy() const
 
 void memory_sub_partition::push( mem_fetch* req, unsigned long long cycle ) 
 {
-    if (req) {
+    if (req) { //- req may be Null, if inter-sim pop a Null;
         m_request_tracker.insert(req);
         m_stats->memlatstat_icnt2mem_pop(req);
-        if( req->istexture() ) {
+        if( req->istexture() ) { //- texture req ,put in icnt-L2 Q directly;
             m_icnt_L2_queue->push(req);
             req->set_status(IN_PARTITION_ICNT_TO_L2_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-        } else {
+        } else { //- not texture req, put in rop Q firstly ;
             rop_delay_t r;
             r.req = req;
             r.ready_cycle = cycle + m_config->rop_latency;
-            m_rop.push(r);
+            m_rop.push(r);  
             req->set_status(IN_PARTITION_ROP_DELAY,gpu_sim_cycle+gpu_tot_sim_cycle);
         }
     }

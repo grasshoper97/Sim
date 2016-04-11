@@ -657,7 +657,7 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
                                               m_tpc,
                                               m_memory_config );//-new a mf. in heap
                 std::list<cache_event> events;  //-local vars.
-                enum cache_request_status status = m_L1I->access( (new_addr_type)ppc, mf, gpu_sim_cycle+gpu_tot_sim_cycle,events); //-visit L1I. in this func, mf->m_data_size modified from 16 to line_sz
+                enum cache_request_status status = m_L1I->access( (new_addr_type)ppc, mf, gpu_sim_cycle+gpu_tot_sim_cycle,events); //-visit L1I. in this func, mf->m_data_size modified from 16 to line_sz; if miss, mf -> miss_Q
                 g_fetch++; //-count system fetch ins .
                 //-printf(" <%3d> w[%d]  pc    =%u  status=%d ",mf->get_request_uid(), warp_id, pc, status);
                 
@@ -733,7 +733,7 @@ void shader_core_ctx::fetch()//-if Core buffer empty, get 16B from L1I. then dri
     if( m_L1I->access_ready() ) { //-if the MISS mf back from L2/Memory.
         mem_fetch *mf = m_L1I->next_access();//-the MISS mf return form L2 to L1I.
         m_warp[mf->get_wid()].clear_imiss_pending();//-get I data, not pending now. In next cycle, fetch incs will HIT.
-        // next 3 line is add to fix a issue
+        // next 3 line is add to fix a issue. 2016.03.30
         m_inst_fetch_buffer = ifetch_buffer_t(m_warp[mf->get_wid()].get_pc(), mf->get_access_size(), mf->get_wid());
         m_inst_fetch_buffer.m_valid = true;
         m_warp[mf->get_wid()].set_last_fetch(gpu_sim_cycle);
@@ -745,7 +745,7 @@ void shader_core_ctx::func_exec_inst( warp_inst_t &inst )
 {
     execute_warp_inst_t(inst);//- call set_span();
     if( inst.is_load() || inst.is_store() )
-        inst.generate_mem_accesses();
+        inst.generate_mem_accesses(); //- add a memory access to m_accessq of this inst
 }
 //SimtStack/scoreboard has been checked OK,
 void shader_core_ctx::issue_warp( register_set& pipe_reg_set, const warp_inst_t* next_inst, const active_mask_t &active_mask, unsigned warp_id )
@@ -758,7 +758,7 @@ void shader_core_ctx::issue_warp( register_set& pipe_reg_set, const warp_inst_t*
     **pipe_reg = *next_inst; //-fill a inst to the dest inst. static instruction information 
     (*pipe_reg)->issue( active_mask, warp_id, gpu_tot_sim_cycle + gpu_sim_cycle, m_warp[warp_id].get_dynamic_warp_id() ); // dynamic instruction information. // -inst.issue();
     m_stats->shader_cycle_distro[2+(*pipe_reg)->active_count()]++;//- Wn means in this cycle, n threads is issued to pipeline. distro[0.1.2] has been occupied.
-    func_exec_inst( **pipe_reg );
+    func_exec_inst( **pipe_reg ); //- add a memory access to m_accessq of the inst which in pipe_geg.
     if( next_inst->op == BARRIER_OP ) 
         m_barriers.warp_reaches_barrier(m_warp[warp_id].get_cta_id(),warp_id);
     else if( next_inst->op == MEMORY_BARRIER_OP ) 
@@ -1389,16 +1389,16 @@ ldst_unit::process_cache_access( cache_t* cache,
                     m_pending_writes[inst.warp_id()][inst.out[r]]--; 
         }
         if( !write_sent ) 
-            delete mf;
+            delete mf;  //-this mf is finished;
     } else if ( status == RESERVATION_FAIL ) {
         result = COAL_STALL;
         assert( !read_sent );
         assert( !write_sent );
-        delete mf;// this mf is deleted , should be generate next round when the warp is issued.
+        delete mf;// this mf is deleted , should be get from inst.accessq  next round when the warp is issued.
     } else {
         assert( status == MISS || status == HIT_RESERVED );
         //inst.clear_active( access.get_warp_mask() ); // threads in mf writeback when mf returns
-        inst.accessq_pop_back();// mf leave form inst.accessQ.
+        inst.accessq_pop_back();// del from inst.accessQ. it has been put into L1 miss_Q in process_memory_access_queue()
     }
     if( !inst.accessq_empty() )
         result = BK_CONF;
@@ -1408,7 +1408,7 @@ ldst_unit::process_cache_access( cache_t* cache,
 mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, warp_inst_t &inst )
 {
     mem_stage_stall_type result = NO_RC_FAIL;
-    if( inst.accessq_empty() )
+    if( inst.accessq_empty() ) //- no memory access, return;
         return result;
 
     if( !cache->data_port_free() ) 
@@ -1417,6 +1417,7 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, war
     //const mem_access_t &access = inst.accessq_back();
     mem_fetch *mf = m_mf_allocator->alloc(inst,inst.accessq_back()); // copy a pointer of  mf form tail of accessQ of inst.
     std::list<cache_event> events;// list< cache_event >
+    //**** cache. access() *****
     enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);//-modify cache
     //cjllean@L1 cache	
     /* int tp=mf->get_access_type(); 
@@ -1489,7 +1490,7 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
            stall_cond = ICNT_RC_FAIL;
        } else {
            mem_fetch *mf = m_mf_allocator->alloc(inst,access);
-           m_icnt->push(mf);
+           m_icnt->push(mf);        //- if bypass L1D, ldst_unit put mf to ICNT directly;
            inst.accessq_pop_back();
            //inst.clear_active( access.get_warp_mask() );
            if( inst.is_load() ) { 
@@ -1501,7 +1502,7 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
        }
    } else {
        assert( CACHE_UNDEFINED != inst.cache_op );
-       stall_cond = process_memory_access_queue(m_L1D,inst);
+       stall_cond = process_memory_access_queue(m_L1D,inst); // move mf from inst->L1D
    }
    if( !inst.accessq_empty() ) 
        stall_cond = COAL_STALL;
@@ -1683,8 +1684,8 @@ ldst_unit::ldst_unit( mem_fetch_interface *icnt,
           tpc );
     if( !m_config->m_L1D_config.disabled() ) {
         char L1D_name[STRSIZE];
-        snprintf(L1D_name, STRSIZE, "L1D_%03d", m_sid);
-        m_L1D = new l1_cache( L1D_name,
+        snprintf(L1D_name, STRSIZE, "L1D_%03d", m_sid);     //-new a L1D;
+        m_L1D = new l1_cache( L1D_name,         
                               m_config->m_L1D_config,
                               m_sid,
                               get_shader_normal_cache_id(),
@@ -1870,6 +1871,7 @@ void ldst_unit::cycle()
        if( m_pipeline_reg[stage]->empty() && !m_pipeline_reg[stage+1]->empty() )
             move_warp(m_pipeline_reg[stage], m_pipeline_reg[stage+1]);
 
+    //- move mf from response Q to corresponding cache. fill L1T/L1C/L1D
    if( !m_response_fifo.empty() ) {
        mem_fetch *mf = m_response_fifo.front();// get form head, test if it can be sent to L1 Cache.
        if (mf->istexture()) {
@@ -1885,11 +1887,11 @@ void ldst_unit::cycle()
            }
        } else {
     	   if( mf->get_type() == WRITE_ACK || ( m_config->gpgpu_perfect_mem && mf->get_is_write() )) {
-               m_core->store_ack(mf);// ack mess sent to c_core directly.
+               m_core->store_ack(mf);// write_ack is used to dec m_core's conresponding warp's 'm_stores_outstanding'
                m_response_fifo.pop_front();
-               delete mf;
+               delete mf;//- no use now, delete;  who generate this 'ack' mf?
            } else {
-               assert( !mf->get_is_write() ); // L1 cache is write evict, allocate line on load miss only
+               assert( !mf->get_is_write() ); //-is a read back; L1 cache is write evict, allocate line on load miss only
 
                bool bypassL1D = false; 
                if ( CACHE_GLOBAL == mf->get_inst().cache_op || (m_L1D == NULL) ) {
@@ -1916,7 +1918,7 @@ void ldst_unit::cycle()
 
    m_L1T->cycle();
    m_L1C->cycle();
-   if( m_L1D ) m_L1D->cycle();
+   if( m_L1D ) m_L1D->cycle(); //-move mf from m_miss_queue to next level memory
 
    warp_inst_t &pipe_reg = *m_dispatch_reg;
    enum mem_stage_stall_type rc_fail = NO_RC_FAIL;
@@ -3387,21 +3389,21 @@ bool simt_core_cluster::icnt_injection_buffer_full(unsigned size, bool write)// 
     return ! ::icnt_has_buffer(m_cluster_id, request_size);
 }
 
-void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf)// put in a mf into icnt
+void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf)// put in a mf into icnt; icnt_push();
 {
     // stats
     if (mf->get_is_write()) m_stats->made_write_mfs++;
     else m_stats->made_read_mfs++;
     switch (mf->get_access_type()) {
-    case CONST_ACC_R: m_stats->gpgpu_n_mem_const++; break;
-    case TEXTURE_ACC_R: m_stats->gpgpu_n_mem_texture++; break;
-    case GLOBAL_ACC_R: m_stats->gpgpu_n_mem_read_global++; break;
-    case GLOBAL_ACC_W: m_stats->gpgpu_n_mem_write_global++; break;
-    case LOCAL_ACC_R: m_stats->gpgpu_n_mem_read_local++; break;
-    case LOCAL_ACC_W: m_stats->gpgpu_n_mem_write_local++; break;
-    case INST_ACC_R: m_stats->gpgpu_n_mem_read_inst++; break;
-    case L1_WRBK_ACC: m_stats->gpgpu_n_mem_write_global++; break;
-    case L2_WRBK_ACC: m_stats->gpgpu_n_mem_l2_writeback++; break;
+    case CONST_ACC_R:   m_stats->gpgpu_n_mem_const++;           break;
+    case TEXTURE_ACC_R: m_stats->gpgpu_n_mem_texture++;         break;
+    case GLOBAL_ACC_R:  m_stats->gpgpu_n_mem_read_global++;     break;
+    case GLOBAL_ACC_W:  m_stats->gpgpu_n_mem_write_global++;    break;
+    case LOCAL_ACC_R:   m_stats->gpgpu_n_mem_read_local++;      break;
+    case LOCAL_ACC_W:   m_stats->gpgpu_n_mem_write_local++;     break;
+    case INST_ACC_R:    m_stats->gpgpu_n_mem_read_inst++;       break;
+    case L1_WRBK_ACC:   m_stats->gpgpu_n_mem_write_global++;    break;
+    case L2_WRBK_ACC:   m_stats->gpgpu_n_mem_l2_writeback++;    break;
     case L1_WR_ALLOC_R: m_stats->gpgpu_n_mem_l1_write_allocate++; break;
     case L2_WR_ALLOC_R: m_stats->gpgpu_n_mem_l2_write_allocate++; break;
     default: assert(0);
@@ -3422,29 +3424,29 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf)// put in
    else 
       ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void*)mf, mf->size());
 }
-//- receive the mf back form icnt/L2/Mem
+//- L1I/L1D <== m_response_fifo <== icnt_pop()
 void simt_core_cluster::icnt_cycle()
 {
-    if( !m_response_fifo.empty() ) { //- mf: cluster response fifo -> L1I or ldst's response fifo.
+    if( !m_response_fifo.empty() ) { //- (1) mf: cluster response fifo -> L1I or ldst's response fifo.
         mem_fetch *mf = m_response_fifo.front();
         unsigned cid = m_config->sid_to_cid(mf->get_sid()); //-which core this mf belong to 
         if( mf->get_access_type() == INST_ACC_R ) {
             // instruction fetch response, L1I
-            if( !m_core[cid]->fetch_unit_response_buffer_full() ) {//-L1I .(when warp's i-buffer empty,read L1I)
+            if( !m_core[cid]->fetch_unit_response_buffer_full() ) {//-always return false???
                 m_response_fifo.pop_front();
-                m_core[cid]->accept_fetch_response(mf);//-from cluster fifo to L1I.
+                m_core[cid]->accept_fetch_response(mf);//-m_L1I->fill(mf) .
             }
         } else {
             // data response, L1D
             if( !m_core[cid]->ldst_unit_response_buffer_full() ) {//-Data back form L2 put in ldst's response_fifo 
                 m_response_fifo.pop_front();
                 m_memory_stats->memlatstat_read_done(mf);
-                m_core[cid]->accept_ldst_unit_response(mf);
+                m_core[cid]->accept_ldst_unit_response(mf);//- m_ldst_unit->fill(mf);
             }
         }
     }
-    if( m_response_fifo.size() < m_config->n_simt_ejection_buffer_size ) {//-the mf : icnt/L2 -> cluster response fifo.
-        mem_fetch *mf = (mem_fetch*) ::icnt_pop(m_cluster_id);//-get mf from icnt/L2
+    if( m_response_fifo.size() < m_config->n_simt_ejection_buffer_size ) {//-(2) mf : icnt -> cluster response fifo.
+        mem_fetch *mf = (mem_fetch*) ::icnt_pop(m_cluster_id);//-get mf from icnt to shader;
         if (!mf) 
             return;
         assert(mf->get_tpc() == m_cluster_id);

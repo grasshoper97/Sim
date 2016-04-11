@@ -206,7 +206,7 @@ void dram_t::cycle()
 {
 
    if( !returnq->full() ) {
-       dram_req_t *cmd = rwq->pop();
+       dram_req_t *cmd = rwq->pop();   //- rwq -> returnq
        if( cmd ) {
 #ifdef DRAM_VIEWCMD 
            printf("\tDQ: BK%d Row:%03x Col:%03x", cmd->bk, cmd->row, cmd->col + cmd->dqbytes);

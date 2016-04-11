@@ -1557,7 +1557,7 @@ public:
     }
     mem_fetch *alloc( new_addr_type addr, mem_access_type type, unsigned size, bool wr ) const 
     {
-    	mem_access_t access( type, addr, size, wr );
+    	mem_access_t access( type, addr, size, wr );//-new a mem_access_t first, then new a mf;
     	mem_fetch *mf = new mem_fetch( access, 
     				       NULL,
     				       wr?WRITE_PACKET_SIZE:READ_PACKET_SIZE, 
@@ -1823,7 +1823,7 @@ private:
     thread_ctx_t           *m_threadState;
     
     // interconnect interface
-    mem_fetch_interface    *m_icnt;
+    mem_fetch_interface    *m_icnt; //-interface to inter-Sim;
     shader_core_mem_fetch_allocator     *m_mem_fetch_allocator;
     
     // fetch

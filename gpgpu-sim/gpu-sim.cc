@@ -1176,33 +1176,33 @@ void gpgpu_sim::cycle()
 {
    int clock_mask = next_clock_domain();
 
-   if (clock_mask & CORE ) {
-       // shader core loading (pop from ICNT into core) follows CORE clock
+   if (clock_mask & CORE ) { //- L1D/L1I <- m_response_fifo <- ::icnt_pop(m_cluster_id)
+       // shader core loading (pop from response list to core) follows CORE clock
       for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) 
-         m_cluster[i]->icnt_cycle(); 
+         m_cluster[i]->icnt_cycle();
    }
-    if (clock_mask & ICNT) {
+    if (clock_mask & ICNT) { //- mf: ICNT_push() <- L2_icnt Q
         // pop from memory controller to interconnect
         for (unsigned i=0;i<m_memory_config->m_n_mem_sub_partition;i++) {
-            mem_fetch* mf = m_memory_sub_partition[i]->top();
+            mem_fetch* mf = m_memory_sub_partition[i]->top();//- m_L2_icnt_queue->top();
             if (mf) {
                 unsigned response_size = mf->get_is_write()?mf->get_ctrl_size():mf->size();
                 if ( ::icnt_has_buffer( m_shader_config->mem2device(i), response_size ) ) {
                     if (!mf->get_is_write()) 
                        mf->set_return_timestamp(gpu_sim_cycle+gpu_tot_sim_cycle);
                     mf->set_status(IN_ICNT_TO_SHADER,gpu_sim_cycle+gpu_tot_sim_cycle);
-                    ::icnt_push( m_shader_config->mem2device(i), mf->get_tpc(), mf, response_size );
-                    m_memory_sub_partition[i]->pop();
+                    ::icnt_push( m_shader_config->mem2device(i), mf->get_tpc(), mf, response_size ); //-put mf to ICNT
+                    m_memory_sub_partition[i]->pop(); //- pop it from m_L2_icnt_queue ;
                 } else {
                     gpu_stall_icnt2sh++;
                 }
-            } else {
-               m_memory_sub_partition[i]->pop();
+            } else { //- mf == NULL
+               m_memory_sub_partition[i]->pop(); //-???
             }
         }
     }
 
-   if (clock_mask & DRAM) {
+   if (clock_mask & DRAM) { //- drive dram;
       for (unsigned i=0;i<m_memory_config->m_n_mem;i++){
          m_memory_partition_unit[i]->dram_cycle(); // Issue the dram command (scheduler + delay model)
          // Update performance counters for DRAM
@@ -1212,25 +1212,25 @@ void gpgpu_sim::cycle()
       }
    }
 
-   // L2 operations follow L2 clock domain
+   // L2 operations follow L2 clock domain;  mf :ICNT_pop() -> L2
    if (clock_mask & L2) {
        m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX].clear();
-      for (unsigned i=0;i<m_memory_config->m_n_mem_sub_partition;i++) {
+      for (unsigned i=0;i<m_memory_config->m_n_mem_sub_partition;i++) { //-call sub_partition's( 12 ) function directly;
           //move memory request from interconnect into memory partition (if not backed up)
           //Note:This needs to be called in DRAM clock domain if there is no L2 cache in the system
-          if ( m_memory_sub_partition[i]->full() ) {
-             gpu_stall_dramfull++;
-          } else {
-              mem_fetch* mf = (mem_fetch*) icnt_pop( m_shader_config->mem2device(i) );
-              m_memory_sub_partition[i]->push( mf, gpu_sim_cycle + gpu_tot_sim_cycle );
-          }
+          if ( m_memory_sub_partition[i]->full() ) { //-return m_icnt_L2_queue->full();
+             gpu_stall_dramfull++; //- sum of stall cycles of 12 sub_partitions.
+          } else { //- the mf may be NULL;
+              mem_fetch* mf = (mem_fetch*) icnt_pop( m_shader_config->mem2device(i) ); //-icnt_pop is inter-sim's funciton;
+              m_memory_sub_partition[i]->push( mf, gpu_sim_cycle + gpu_tot_sim_cycle ); //-call m_icnt_L2_queue->push() or m_rop->push();
+          }//- ??? icnt_pop to shader, and to L2? 2 direction?
           m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle+gpu_tot_sim_cycle);
           m_memory_sub_partition[i]->accumulate_L2cache_stats(m_power_stats->pwr_mem_stat->l2_cache_stats[CURRENT_STAT_IDX]);
        }
    }
 
    if (clock_mask & ICNT) {
-      icnt_transfer();
+      icnt_transfer(); //- it is a function pointer which point to inter-sim;
    }
 
    if (clock_mask & CORE) {
