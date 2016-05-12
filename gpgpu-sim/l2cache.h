@@ -181,7 +181,7 @@ private:
 // data
    unsigned m_id;  //< the global sub partition ID
    const struct memory_config *m_config;
-   class l2_cache *m_L2cache;
+   class l2_cache *m_L2cache; //- this is a bank of L2;
    class L2interface *m_L2interface;
    partition_mf_allocator *m_mf_allocator;
 
@@ -209,7 +209,7 @@ private:
    friend class L2interface;
 };
 
-class L2interface : public mem_fetch_interface {
+class L2interface : public mem_fetch_interface { //-query and put into L2_dram_Q
 public:
     L2interface( memory_sub_partition *unit ) { m_unit=unit; }
     virtual ~L2interface() {}

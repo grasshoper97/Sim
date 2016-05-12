@@ -575,10 +575,10 @@ MEM_ACCESS_TYPE_TUP_DEF
 //     TEXTURE_ACC_R  ,       3  
 //     GLOBAL_ACC_W   ,       4  
 //     LOCAL_ACC_W    ,       5  
-//     L1_WRBK_ACC    ,       6 ? 
+//     L1_WRBK_ACC    ,       6 ?/* no write-through type ? */ 
 //     L2_WRBK_ACC    ,       7 ? 
 //     INST_ACC_R     ,       8  
-//     L1_WR_ALLOC_R  ,       9 ? 
+//     L1_WR_ALLOC_R  ,       9 ? /* no write-not-allocation type ? */ 
 //     L2_WR_ALLOC_R  ,      10 ?
 //     NUM_MEM_ACCESS_TYPE   11 
 // };
@@ -677,7 +677,7 @@ private:
 
 class mem_fetch;
 
-class mem_fetch_interface {
+class mem_fetch_interface { //- one direction.
 public:
     virtual bool full( unsigned size, bool write ) const = 0;
     virtual void push( mem_fetch *mf ) = 0;

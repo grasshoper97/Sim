@@ -1221,7 +1221,7 @@ void gpgpu_sim::cycle()
           if ( m_memory_sub_partition[i]->full() ) { //-return m_icnt_L2_queue->full();
              gpu_stall_dramfull++; //- sum of stall cycles of 12 sub_partitions.
           } else { //- the mf may be NULL;
-              mem_fetch* mf = (mem_fetch*) icnt_pop( m_shader_config->mem2device(i) ); //-icnt_pop is inter-sim's funciton;
+              mem_fetch* mf = (mem_fetch*) icnt_pop( m_shader_config->mem2device(i) ); //-icnt_pop is inter-sim's funciton; i is sub_partition number;
               m_memory_sub_partition[i]->push( mf, gpu_sim_cycle + gpu_tot_sim_cycle ); //-call m_icnt_L2_queue->push() or m_rop->push();
           }//- ??? icnt_pop to shader, and to L2? 2 direction?
           m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle+gpu_tot_sim_cycle);

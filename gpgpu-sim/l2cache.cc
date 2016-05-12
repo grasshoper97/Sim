@@ -370,7 +370,8 @@ void memory_sub_partition::cache_cycle( unsigned cycle ) //icnt <==> L2 <==> Dra
        m_L2cache->cycle();
     
     //- icnt_L2 Q -->access L2--> L2_icnt Q(hit) or L2_miss Q(miss)
-    if ( !m_L2_dram_queue->full() && !m_icnt_L2_queue->empty() ) {//-has quest in income Q, and has room to dram Q;
+    //.....................................................................................................................
+        if ( !m_L2_dram_queue->full() && !m_icnt_L2_queue->empty() ) {//-has quest in income Q, and has room to dram Q;
         mem_fetch *mf = m_icnt_L2_queue->top(); //- get a mf from icnt_L2 income queue ;
         if ( !m_config->m_L2_config.disabled() &&
               ( (m_config->m_L2_texure_only && mf->istexture()) || (!m_config->m_L2_texure_only) )
@@ -403,7 +404,7 @@ void memory_sub_partition::cache_cycle( unsigned cycle ) //icnt <==> L2 <==> Dra
                     }
                 } else if ( status != RESERVATION_FAIL ) { //- hit_reserve  or  miss
                     // L2 cache accepted request
-                    m_icnt_L2_queue->pop(); //- move out of icnt->L2 Q and didn't save???
+                    m_icnt_L2_queue->pop(); //- move out of icnt->L2 Q and didn't save??? ,mf is move to missQ in access();
                 } else { // == Reservation_fail
                     assert(!write_sent);
                     assert(!read_sent);
@@ -413,10 +414,11 @@ void memory_sub_partition::cache_cycle( unsigned cycle ) //icnt <==> L2 <==> Dra
         } else {
             // L2 is disabled or non-texture access to texture-only L2
             mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
-            m_L2_dram_queue->push(mf);//-move from icnt-L2 Q to L2-dram Q. Not access L2 cache.
+            m_L2_dram_queue->push(mf);//-move from icnt-L2 Q to L2-dram Q. bypass L2 cache.
             m_icnt_L2_queue->pop();
         }
     }
+    //............................................................................................................
 
     // ROP Q --> icnt_L2 Q
     if( !m_rop.empty() && (cycle >= m_rop.front().ready_cycle) && !m_icnt_L2_queue->full() ) {

@@ -198,6 +198,8 @@ extern bool g_cuda_launch_blocking;
 int  g_prefetch_rec_max_size=0; //-defined and inited here, used in "shader.cc:604"
 int  g_prefetch_interval    =0; //-defined and inited here, used in "shader.cc:605"
 int  g_prefetch_length      =0; //-defined and inited here, used in "shader.cc:606"
+int  g_prefetch_mode        =1; //-0x01= PRE_ON_HIT; 0x10=PRE_ON_MISS; 0x11=PRE_ON_ALL (ON_XXX is used in cahce mode)
+
 long g_prefetch_mem         =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
 long g_prefetch             =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
 long g_fetch                =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
@@ -232,8 +234,13 @@ void read_my_config(){ //-read my own global vars.
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_prefetch_length = option_value; //- init global var 'g_prefetch_length'
     printf("my_options.config : {%s   %d}      g_prefetch_length=%d\n", option_name , option_value,g_prefetch_length);
+    // get prefetch mode
+    myfile.getline (buffer,256); 
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_prefetch_mode = option_value; //- init global var 'g_prefetch_mode'
+    printf("my_options.config : {%s   %d}      g_prefetch_mode=%d\n", option_name , option_value,g_prefetch_mode);
     myfile.close();
-    printf("rec max size = %d; prefetch interval = %d; prefetch length=%d\n",g_prefetch_rec_max_size,g_prefetch_interval,g_prefetch_length);
+    printf("rec max size = %d; prefetch interval = %d; prefetch length=%d; prefetch mode=%d\n",g_prefetch_rec_max_size,g_prefetch_interval,g_prefetch_length, g_prefetch_mode);
 }
 gpgpu_sim *gpgpu_ptx_sim_init_perf()
 {

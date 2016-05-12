@@ -52,7 +52,7 @@ enum cache_request_status  { // 4 status
     NUM_CACHE_REQUEST_STATUS
 };
 
-enum cache_event { //-3 event: write_back ; read ; write;
+enum cache_event { //-3 event: write_back (when write_back on-hit policy is used); read ; write;
     WRITE_BACK_REQUEST_SENT,
     READ_REQUEST_SENT,
     WRITE_REQUEST_SENT
@@ -265,12 +265,12 @@ protected:
     unsigned m_nset_log2;
     unsigned m_assoc;
 
-    enum replacement_policy_t m_replacement_policy; // 'L' = LRU, 'F' = FIFO
-    enum write_policy_t m_write_policy;             // 'T' = write through, 'B' = write back, 'R' = read only
-    enum allocation_policy_t m_alloc_policy;        // 'm' = allocate on miss, 'f' = allocate on fill
-    enum mshr_config_t m_mshr_type;
+    enum replacement_policy_t   m_replacement_policy; // 'L' = LRU, 'F' = FIFO
+    enum write_policy_t         m_write_policy;       // 'T' = write through, 'B' = write back, 'R' = read only
+    enum allocation_policy_t    m_alloc_policy;       // 'm' = allocate on miss, 'f' = allocate on fill
+    enum mshr_config_t          m_mshr_type;
 
-    write_allocate_policy_t m_write_alloc_policy;	// 'W' = Write allocate, 'N' = No write allocate
+    write_allocate_policy_t     m_write_alloc_policy;	// 'W' = Write allocate, 'N' = No write allocate
 
     union {
         unsigned m_mshr_entries;
@@ -697,14 +697,14 @@ protected:
 class data_cache : public baseline_cache {
 public:
     data_cache( const char *name, cache_config &config,
-    			int core_id, int type_id, mem_fetch_interface *memport,
+    			int core_id, int type_id, mem_fetch_interface *memport, //-for L1 is to ICNT; for L2 is to Dram
                 mem_fetch_allocator *mfcreator, enum mem_fetch_status status,
                 mem_access_type wr_alloc_type, mem_access_type wrbk_type )
     			: baseline_cache(name,config,core_id,type_id,memport,status)
     {
         init( mfcreator );
-        m_wr_alloc_type = wr_alloc_type;
-        m_wrbk_type = wrbk_type;
+        m_wr_alloc_type = wr_alloc_type; // L1 or L2
+        m_wrbk_type = wrbk_type; //L1 or L2
     }
 
     virtual ~data_cache() {}
@@ -903,7 +903,7 @@ protected:
 class l1_cache : public data_cache {
 public:
     l1_cache(const char *name, cache_config &config,
-            int core_id, int type_id, mem_fetch_interface *memport,
+            int core_id, int type_id, mem_fetch_interface *memport,//- interface to ICNT
             mem_fetch_allocator *mfcreator, enum mem_fetch_status status )
             : data_cache(name,config,core_id,type_id,memport,mfcreator,status, L1_WR_ALLOC_R, L1_WRBK_ACC){}
 
@@ -935,7 +935,7 @@ protected:
 class l2_cache : public data_cache {
 public:
     l2_cache(const char *name,  cache_config &config,
-            int core_id, int type_id, mem_fetch_interface *memport,
+            int core_id, int type_id, mem_fetch_interface *memport,  //-interface to Dram
             mem_fetch_allocator *mfcreator, enum mem_fetch_status status )
             : data_cache(name,config,core_id,type_id,memport,mfcreator,status, L2_WR_ALLOC_R, L2_WRBK_ACC){}
 

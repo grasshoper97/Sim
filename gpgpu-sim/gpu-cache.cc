@@ -276,7 +276,7 @@ void tag_array::get_stats(unsigned &total_access, unsigned &total_misses, unsign
     total_res_fail  = m_res_fail;
 }
 
-
+// events is a list, can have write/read/writeback in the same time.
 bool was_write_sent( const std::list<cache_event> &events )
 {
     for( std::list<cache_event>::const_iterator e=events.begin(); e!=events.end(); e++ ) {
@@ -720,7 +720,7 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 #undef MF_TUP
 #undef MF_TUP_END
 
-/// Read miss handler. Check MSHR hit or MSHR available, 11 params ( bool &wb, cache_block_t &evicted) added.
+/// Read miss handler. Check MSHR hit or MSHR available, ( bool &wb, cache_block_t &evicted) added. 11 params
 void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_addr, unsigned cache_index, mem_fetch *mf,
 		unsigned time, bool &do_miss, bool &wb, cache_block_t &evicted, std::list<cache_event> &events, bool read_only, bool wa){
 
@@ -958,9 +958,9 @@ data_cache::rd_miss_base( new_addr_type addr,
         // (already modified lower level)
         if(wb && (m_config.m_write_policy != WRITE_THROUGH) ){ 
             mem_fetch *wb = m_memfetch_creator->alloc(evicted.m_block_addr,
-                m_wrbk_type,m_config.get_line_sz(),true);
+                m_wrbk_type,m_config.get_line_sz(),true); //-both L1D/L2 m_wrbk_type=L1_WRBK_ACC, L2_WRBK_ACC
         //------------<send 2, write>    
-        send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);  //-read op can invoke a write op;
+        send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);  //-read op can invoke a write op; wrtie_back_request_sent only here
     }
         return MISS;
     }

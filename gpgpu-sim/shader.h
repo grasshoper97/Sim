@@ -1567,7 +1567,7 @@ public:
     				       m_memory_config );
     	return mf;
     }
-    
+    //- ldst_unit's L1D generate mf use this func();
     mem_fetch *alloc( const warp_inst_t &inst, const mem_access_t &access ) const
     {
         warp_inst_t inst_copy = inst;
@@ -1776,6 +1776,7 @@ private:
     void init_warps(unsigned cta_id, unsigned start_thread, unsigned end_thread);
     virtual void checkExecutionStatusAndUpdate(warp_inst_t &inst, unsigned t, unsigned tid);
     address_type next_pc( int tid ) const;
+    void issue_inst_prefetch(address_type ppc, unsigned warp_id,std::list<cache_event> & events);
     void fetch();
     void register_cta_thread_exit( unsigned cta_num );
 
@@ -1940,7 +1941,7 @@ private:
     simt_core_cluster *m_cluster;
 };
 
-class perfect_memory_interface : public mem_fetch_interface {
+class perfect_memory_interface : public mem_fetch_interface { //-only for perfect memory; mf back to cluster's m_response_fifo immediately.
 public:
     perfect_memory_interface( shader_core_ctx *core, simt_core_cluster *cluster ) { m_core=core; m_cluster=cluster; }
     virtual bool full( unsigned size, bool write) const
@@ -1952,7 +1953,7 @@ public:
         if ( mf && mf->isatomic() )
             mf->do_atomic(); // execute atomic inside the "memory subsystem"
         m_core->inc_simt_to_mem(mf->get_num_flits(true));
-        m_cluster->push_response_fifo(mf);        
+        m_cluster->push_response_fifo(mf);       //- m_response_fifo.push_back(mf);
     }
 private:
     shader_core_ctx *m_core;
