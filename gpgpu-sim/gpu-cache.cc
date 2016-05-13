@@ -746,7 +746,7 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
         m_miss_queue.push_back(mf); // miss, send to miss queue, wait next level to return;** m_miss_queue.push_back(mf);
         mf->set_status(m_miss_queue_status,time);
         //- 2016.04.05
-    printf("@@@@ send_read_request(): address: %8X, status:(%2d) %s, %s\n",mf->get_addr() , m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
+    printf("@@@@ send_read_request(): address: %8X, is_pre: %d, status:(%2d) %s, %s\n",mf->get_addr() , mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
         if(!wa)
         	events.push_back(READ_REQUEST_SENT);
         do_miss = true;
@@ -760,7 +760,7 @@ void data_cache::send_write_request(mem_fetch *mf, cache_event request, unsigned
     m_miss_queue.push_back(mf); //--------------------- m_miss_queue.push_back();
     mf->set_status(m_miss_queue_status,time);
     //- 2016.04.05
-    printf("@@@@ send_write_request(): address: %8X, status:(%2d) %s, %s\n",mf->get_addr() , m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
+    printf("@@@@ send_write_request(): address: %8X, is_pre: %d, status:(%2d) %s, %s\n",mf->get_addr() ,mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
 }
 
 

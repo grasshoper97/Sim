@@ -1376,6 +1376,41 @@ bool ldst_unit::shared_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, 
     return !stall; 
 }
 
+mem_stage_stall_type ldst_unit::process_cache_access_lean( cache_t* cache,
+        new_addr_type address,
+        warp_inst_t &inst,
+        std::list<cache_event>& events,
+        mem_fetch *mf,
+        enum cache_request_status status )
+{
+    mem_stage_stall_type result = NO_RC_FAIL;
+    bool write_sent = was_write_sent(events);
+    bool read_sent = was_read_sent(events);
+    //if( write_sent ) 
+        //m_core->inc_store_req( inst.warp_id() );
+    if ( status == HIT ) {
+        assert( !read_sent );
+        //inst.accessq_pop_back();
+        //if ( inst.is_load() ) {
+        //    for ( unsigned r=0; r < 4; r++)
+        //        if (inst.out[r] > 0)
+        //            m_pending_writes[inst.warp_id()][inst.out[r]]--; 
+        //}
+        if( !write_sent ) 
+            delete mf;  //-this mf is finished;
+    } else if ( status == RESERVATION_FAIL ) {
+        result = COAL_STALL;
+        assert( !read_sent );
+        assert( !write_sent );
+        delete mf;//-this mf is deleted , corresponding access is still in "inst.accessq"; when this inst issue again, a new mf is generated; 
+    } else {
+        assert( status == MISS || status == HIT_RESERVED );
+        //inst.accessq_pop_back();// del from inst.accessQ. it has been put into L1 miss_Q in process_memory_access_queue()
+    }
+    if( !inst.accessq_empty() )
+        result = BK_CONF;
+    return result;
+}
 mem_stage_stall_type ldst_unit::process_cache_access( cache_t* cache,
         new_addr_type address,
         warp_inst_t &inst,
@@ -1413,27 +1448,6 @@ mem_stage_stall_type ldst_unit::process_cache_access( cache_t* cache,
     return result;
 }
 
-//mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, warp_inst_t &inst )
-//{
-//    mem_stage_stall_type result = NO_RC_FAIL;
-//    if( inst.accessq_empty() ) //- no memory access, return;
-//    return result;
-//
-//    if( !cache->data_port_free() ) 
-//        return DATA_PORT_STALL; 
-//
-//    //const mem_access_t &access = inst.accessq_back();
-//    mem_fetch *mf = m_mf_allocator->alloc(inst,inst.accessq_back()); // copy a pointer of  mf form tail of accessQ of inst.
-//    std::list<cache_event> events;// list< cache_event >
-//    //**** cache. access() *****
-//    enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);//-modify cache
-//    //cjllean@L1 cache	
-//    /* int tp=mf->get_access_type(); 
-//       if( tp == GLOBAL_ACC_R || tp == GLOBAL_ACC_W )
-//       printf("@l1_cache %u \t%llx \t%d \t %d \t %d \t%u\n", mf->get_sid() ,mf->get_addr(),  mf->get_data_size(), mf->get_is_write(), status, mf->get_timestamp() );*/
-//
-//    return process_cache_access( cache, mf->get_addr(), inst, events, mf, status );// modify inst->accessQ.
-//}
 mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, warp_inst_t &inst )
 {
     mem_stage_stall_type result = NO_RC_FAIL;
@@ -1450,6 +1464,10 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, war
     enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);//-modify cache
     mem_stage_stall_type t= process_cache_access( cache, mf->get_addr(), inst, events, mf, status );// modify inst->accessQ.
 
+    //    //cjllean@L1 cache	
+    //    /* int tp=mf->get_access_type(); 
+    //       if( tp == GLOBAL_ACC_R || tp == GLOBAL_ACC_W )
+    //       printf("@l1_cache %u \t%llx \t%d \t %d \t %d \t%u\n", mf->get_sid() ,mf->get_addr(),  mf->get_data_size(), mf->get_is_write(), status, mf->get_timestamp() );*/
     //------------------------------------------- prefetch in L1D ---------------------------------------------------
 
    // if(mf->get_access_type() == GLOBAL_ACC_R ) {
@@ -1462,9 +1480,10 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, war
    //              mf->get_sid(),
    //              mf->get_tpc(),
    //              mf->get_mem_config() );//-new pre_mf. in heap
+   //     pre_mf->m_is_pre=true;
    // std::list<cache_event> pre_events;// list< cache_event >
    // enum cache_request_status pre_status = cache->access(pre_mf->get_addr(),pre_mf,gpu_sim_cycle+gpu_tot_sim_cycle,pre_events);//-modify cache
-   // process_cache_access( cache, pre_mf->get_addr(), inst, pre_events, pre_mf, pre_status );// modify inst->accessQ.
+   // process_cache_access_lean( cache, pre_mf->get_addr(), inst, pre_events, pre_mf, pre_status );// modify inst->accessQ.
    // } 
     //------------------------------------------- prefetch in L1D ---------------------------------------------------
 
@@ -3492,6 +3511,16 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf)// put in
     //------------------------------- prefetch in L2 -----------------------------------------------
 
 }
+
+//- 2016.05.13 add to show mf status string 
+#define MF_TUP_BEGIN(X) static const char* Status_str[] = {
+#define MF_TUP(X) #X
+#define MF_TUP_END(X) };
+#include "mem_fetch_status.tup"
+#undef MF_TUP_BEGIN
+#undef MF_TUP
+#undef MF_TUP_END
+
 //- L1I/L1D <== m_response_fifo <== icnt_pop()
 void simt_core_cluster::icnt_cycle()
 {
@@ -3517,6 +3546,8 @@ void simt_core_cluster::icnt_cycle()
         mem_fetch *mf = (mem_fetch*) ::icnt_pop(m_cluster_id);//-get mf from icnt to shader;
         if (!mf) 
             return;
+
+        printf("@@@@ cluster::inct_cycle(): address: %8X, is_pre: %d,  %s, %s\n",mf->get_addr() , mf->m_is_pre, "inct->cluster's m_response_fifo", "cluster" );
         assert(mf->get_tpc() == m_cluster_id);
         assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK );
 

@@ -49,6 +49,7 @@ enum mf_type { //- the type of memory_fetch , not the type of memory_access
 
 class mem_fetch {
 public:
+    bool m_is_pre;
     mem_fetch( const mem_access_t &access, 
                const warp_inst_t *inst,
                unsigned ctrl_size, 

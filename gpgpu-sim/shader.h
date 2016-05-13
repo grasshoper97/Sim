@@ -1177,6 +1177,12 @@ protected:
    bool texture_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
    bool memory_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
 
+   virtual mem_stage_stall_type process_cache_access_lean( cache_t* cache,
+                                                      new_addr_type address,
+                                                      warp_inst_t &inst,
+                                                      std::list<cache_event>& events,
+                                                      mem_fetch *mf,
+                                                      enum cache_request_status status );
    virtual mem_stage_stall_type process_cache_access( cache_t* cache,
                                                       new_addr_type address,
                                                       warp_inst_t &inst,
