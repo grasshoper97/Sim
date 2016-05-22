@@ -1841,7 +1841,7 @@ private:
     std::vector<shd_warp_t>   m_warp;  //-warps in this core. 
     barrier_set_t             m_barriers;
     ifetch_buffer_t           m_inst_fetch_buffer;// a structure. 4 vars. L1I-> this structure-> ibuffer[]
-    std::vector<register_set> m_pipeline_reg;// 7 stages
+    std::vector<register_set> m_pipeline_reg;// 7 stages, register_set is a class in which there is a vec of inst.
     Scoreboard               *m_scoreboard;
     opndcoll_rfu_t            m_operand_collector;
 

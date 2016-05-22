@@ -44,15 +44,15 @@ mem_fetch::mem_fetch( const mem_access_t &access,
    m_is_pre=false;
    m_request_uid = sm_next_mf_request_uid++;
    m_access = access;
-   if( inst ) { 
+   if( inst ) { //-if the param inst != NULL.
        m_inst = *inst;
        assert( wid == m_inst.warp_id() );
    }
    m_data_size = access.get_size();//-acc.m_req_size. 16/8 for instruction.
    m_ctrl_size = ctrl_size;
+   m_wid = wid;
    m_sid = sid;
    m_tpc = tpc;
-   m_wid = wid;
    config->m_address_mapping.addrdec_tlx(access.get_addr(),&m_raw_addr);
    m_partition_addr = config->m_address_mapping.partition_address(access.get_addr());
    m_type = m_access.is_write()?WRITE_REQUEST:READ_REQUEST;

@@ -317,7 +317,7 @@ void warp_inst_t::generate_mem_accesses()
     if( cache_block_size ) {
         assert( m_accessq.empty() );
         mem_access_byte_mask_t byte_mask; 
-        std::map<new_addr_type,active_mask_t> accesses; // block address -> set of thread offsets in warp
+        std::map<new_addr_type,active_mask_t> accesses; //- map< block_address, mask > 
         std::map<new_addr_type,active_mask_t>::iterator a;
         for( unsigned thread=0; thread < m_config->warp_size; thread++ ) {
             if( !active(thread) ) 

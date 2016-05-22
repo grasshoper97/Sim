@@ -786,11 +786,12 @@ enum divergence_support_t {//-only one model is supported now.
 class warp_inst_t: public inst_t {
 public:
     // constructors
-    warp_inst_t() 
+    warp_inst_t()  //-new inst is empty.
     {
         m_uid=0;
         m_empty=true; 
         m_config=NULL; 
+        m_empty=true; //-lean
     }
     warp_inst_t( const core_config *config ) 
     { 
@@ -803,6 +804,7 @@ public:
         m_mem_accesses_created=false;
         m_cache_hit=false;
         m_is_printf=false;
+        m_empty=true; //-lean
     }
     virtual ~warp_inst_t(){
     }
@@ -1030,7 +1032,7 @@ class core_t {
 };
 
 
-//register that can hold multiple instructions.
+//register that can hold multiple instructions. //-has a vec of inst*, regs[]
 class register_set {
 public:
 	register_set(unsigned num, const char* name){
@@ -1041,7 +1043,7 @@ public:
 	}
 	bool has_free(){// not all full .
 		for( unsigned i = 0; i < regs.size(); i++ ) {
-			if( regs[i]->empty() ) {
+			if( regs[i]->empty() ) {  //- new warp_inst is 'empty'
 				return true;
 			}
 		}
@@ -1064,8 +1066,8 @@ public:
 		//   src->copy_contents_to(*get_free());
 		//}
 	void move_out_to( warp_inst_t *&dest ){
-		warp_inst_t **ready=get_ready();
-		move_warp(dest, *ready);
+		warp_inst_t **ready=get_ready(); //-return value is a pointer of a inst's pointer
+		move_warp(dest, *ready); //-exchange the value of two pointer variable, 
 	}
 
 	warp_inst_t** get_ready(){
@@ -1095,7 +1097,7 @@ public:
 	warp_inst_t ** get_free(){
 		for( unsigned i = 0; i < regs.size(); i++ ) {
 			if( regs[i]->empty() ) {
-				return &regs[i];
+				return &regs[i]; //-return the address of a pointer; .e.g , pointer of a pointer;
 			}
 		}
 		assert(0 && "No free registers found");

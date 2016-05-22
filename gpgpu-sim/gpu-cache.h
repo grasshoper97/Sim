@@ -404,9 +404,9 @@ private:
     const unsigned m_max_merged; // how many access of the same addr can be hold.
 
     struct mshr_entry {
-        std::list<mem_fetch*> m_list; // a list of mf
-        bool m_has_atomic; 
-        mshr_entry() : m_has_atomic(false) { }
+        std::list<mem_fetch*>   m_list; // a list of mf
+        bool                    m_has_atomic; 
+        mshr_entry() :          m_has_atomic(false) { }
     }; 
     typedef tr1_hash_map<new_addr_type,mshr_entry> table; // map of ( addr , mshr_entry<list of mf> )
     table m_data;

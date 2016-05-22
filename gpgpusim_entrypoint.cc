@@ -195,18 +195,20 @@ void exit_simulation()
 
 extern bool g_cuda_launch_blocking;
 
-int  g_prefetch_rec_max_size=0; //-defined and inited here, used in "shader.cc:604"
-int  g_prefetch_interval    =0; //-defined and inited here, used in "shader.cc:605"
-int  g_prefetch_length      =0; //-defined and inited here, used in "shader.cc:606"
-int  g_prefetch_mode        =1; //-0x01= PRE_ON_HIT; 0x10=PRE_ON_MISS; 0x11=PRE_ON_ALL (ON_XXX is used in cahce mode)
+int  g_i_prefetch_rec_max_size=0; //-defined and inited here, used in "shader.cc:604"
+int  g_i_prefetch_interval    =0; //-defined and inited here, used in "shader.cc:605"
+int  g_i_prefetch_length      =0; //-defined and inited here, used in "shader.cc:606"
+int  g_i_prefetch_mode        =1; //-0x01= PRE_ON_HIT; 0x10=PRE_ON_MISS; 0x11=PRE_ON_ALL (ON_XXX is used in cahce mode)
 
-long g_prefetch_mem         =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
-long g_prefetch             =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
-long g_fetch                =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
-long g_fetch_stage_cycles   =0; //-
+long g_i_fetch_num                =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_i_prefetch_num             =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_i_prefetch_mem_num         =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
+long g_i_fetch_stage_cycles       =0; //-
 
 #include <fstream> 
 #include <cstdlib>
+#include <string.h>
+#include <assert.h>
 using namespace std;
 void read_my_config(){ //-read my own global vars.
     ifstream myfile("my_options.config"); //- open file.
@@ -221,26 +223,30 @@ void read_my_config(){ //-read my own global vars.
     int option_value;
     // get rec len
     myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
-    g_prefetch_rec_max_size = option_value; //- init global var 'g_prefetch_rec_max_size'
-    printf("my_options.config :{%s   %d} g_prefetch_rec_max_size=%d\n",option_name,option_value,g_prefetch_rec_max_size);
+    g_i_prefetch_rec_max_size = option_value; //- init global var 'g_prefetch_rec_max_size'
+    printf("my_options.config :{%s   %d} g_i_prefetch_rec_max_size=%d\n",option_name,option_value,g_i_prefetch_rec_max_size);
     // get begin pos
     myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
-    g_prefetch_interval = option_value; //- init global var 'g_prefetch_interval'
-    printf("my_options.config : {%s   %d}      g_prefetch_interval =%d\n", option_name , option_value,g_prefetch_interval);
+    g_i_prefetch_interval = option_value; //- init global var 'g_prefetch_interval'
+    printf("my_options.config : {%s   %d}      g_i_prefetch_interval =%d\n", option_name , option_value,g_i_prefetch_interval);
     // get prefetch length
     myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
-    g_prefetch_length = option_value; //- init global var 'g_prefetch_length'
-    printf("my_options.config : {%s   %d}      g_prefetch_length=%d\n", option_name , option_value,g_prefetch_length);
+    g_i_prefetch_length = option_value; //- init global var 'g_prefetch_length'
+    printf("my_options.config : {%s   %d}      g_i_prefetch_length=%d\n", option_name , option_value,g_i_prefetch_length);
     // get prefetch mode
     myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
-    g_prefetch_mode = option_value; //- init global var 'g_prefetch_mode'
-    printf("my_options.config : {%s   %d}      g_prefetch_mode=%d\n", option_name , option_value,g_prefetch_mode);
+    g_i_prefetch_mode = option_value; //- init global var 'g_prefetch_mode'
+    printf("my_options.config : {%s   %d}      g_i_prefetch_mode=%d\n", option_name , option_value,g_i_prefetch_mode);
     myfile.close();
-    printf("rec max size = %d; prefetch interval = %d; prefetch length=%d; prefetch mode=%d\n",g_prefetch_rec_max_size,g_prefetch_interval,g_prefetch_length, g_prefetch_mode);
+    printf("rec max size = %d; prefetch interval = %d; prefetch length=%d; prefetch mode=%d\n",g_i_prefetch_rec_max_size,g_i_prefetch_interval,g_i_prefetch_length, g_i_prefetch_mode);
 }
 gpgpu_sim *gpgpu_ptx_sim_init_perf()
 {

@@ -88,9 +88,9 @@ public:
    unsigned get_sub_partition_id() const { return m_raw_addr.sub_partition; }
    bool     get_is_write() const { return m_access.is_write(); }
    unsigned get_request_uid() const { return m_request_uid; }
+   unsigned get_wid() const { return m_wid; }
    unsigned get_sid() const { return m_sid; }
    unsigned get_tpc() const { return m_tpc; }
-   unsigned get_wid() const { return m_wid; }
    bool istexture() const;
    bool isconst() const;
    enum mf_type get_type() const { return m_type; } //-differ form get_access_type()
