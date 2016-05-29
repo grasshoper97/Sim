@@ -26,7 +26,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef GPU_CACHE_H
-#define GPU_CACHE_H
+#define GPU_CACHE_H  
 
 #include <stdio.h>
 #include <stdlib.h>

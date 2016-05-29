@@ -1,5 +1,17 @@
 let SessionLoad = 1
 if &cp | set nocp | endif
+nmap  :cnext
+nmap  :cprev
+nmap ,d :cs find d =expand("<cword>")
+nmap ,i :cs find i =expand("<cfile>")
+nmap ,f :cs find f =expand("<cfile>")
+nmap ,e :cs find e =expand("<cword>")
+nmap ,t :cs find t =expand("<cword>")
+nmap ,c :cs find c =expand("<cword>")
+nmap ,g :cs find g =expand("<cword>")
+nmap ,s :cs find s =expand("<cword>")
+nmap ,a :csadd cscope.out
+nmap ,q :q
 let s:cpo_save=&cpo
 set cpo&vim
 nmap gx <Plug>NetrwBrowseX
@@ -12,6 +24,7 @@ unlet s:cpo_save
 set autoindent
 set backspace=indent,eol,start
 set cindent
+set cscopequickfix=s-,g-,c-,d-,i-,t-,e-
 set expandtab
 set fileencodings=ucs-bom,utf-8,default,latin1
 set helplang=en
@@ -33,9 +46,9 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +0 ptx.l
-args ptx.l
-edit ptx.l
+badd +0 Makefile
+args Makefile
+edit Makefile
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -66,8 +79,8 @@ setlocal nodiff
 setlocal equalprg=
 setlocal errorformat=
 setlocal expandtab
-if &filetype != 'lex'
-setlocal filetype=lex
+if &filetype != 'make'
+setlocal filetype=make
 endif
 setlocal foldcolumn=0
 setlocal foldenable
@@ -126,8 +139,8 @@ setlocal statusline=
 setlocal suffixesadd=
 setlocal swapfile
 setlocal synmaxcol=3000
-if &syntax != 'lex'
-setlocal syntax=lex
+if &syntax != 'make'
+setlocal syntax=make
 endif
 setlocal tabstop=4
 setlocal tags=
@@ -137,12 +150,12 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1 - ((0 * winheight(0) + 18) / 36)
+let s:l = 134 - ((16 * winheight(0) + 17) / 34)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1
-normal! 0
+134
+normal! 091l
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

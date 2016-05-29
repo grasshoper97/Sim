@@ -338,8 +338,8 @@ void memory_sub_partition::cache_cycle( unsigned cycle ) //icnt <==> L2 <==> Dra
     if( !m_config->m_L2_config.disabled()) {
        if ( m_L2cache->access_ready() && !m_L2_icnt_queue->full() ) {//-L2 has back mf && queqe not all full.
            mem_fetch *mf = m_L2cache->next_access(); //-put mf from mshr's resonse Q to L2_icnt Q
-           //if(mf->get_access_type() != L2_WR_ALLOC_R){ // Don't pass write allocate read request back to upper level cache
-           if(mf->get_access_type() != L2_WR_ALLOC_R && !mf->m_is_pre ){ //- mf generated in L2, need not back to upper.
+           //if(mf->get_access_type() != L2_WR_ALLOC_R && !mf->m_is_pre ){ //- mf generated in L2, need not back to upper.
+           if(mf->get_access_type() != L2_WR_ALLOC_R){ // Don't pass write allocate read request back to upper level cache
 				mf->set_reply();
 				mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,gpu_sim_cycle+gpu_tot_sim_cycle);
 				m_L2_icnt_queue->push(mf);//-move to L2-icnt Q

@@ -884,6 +884,7 @@ extern long  g_i_fetch_num;           //-defined and inited in gpgpusim_entrypoi
 extern long  g_i_prefetch_num;      //-defined and inited in gpgpusim_entrypoint.cc:201
 extern long  g_i_prefetch_mem_num;  //-defined and inited in gpgpusim_entrypoint.cc:201
 extern long  g_i_fetch_stage_cycles;
+extern long  g_d_prefetch_num;      //-defined and inited in gpgpusim_entrypoint.cc:201
 void gpgpu_sim::gpu_print_stat() 
 {  
    FILE *statfout = stdout; 
@@ -895,6 +896,7 @@ void gpgpu_sim::gpu_print_stat()
    fprintf(statfout, "\n**********************************************************************\n"); 
 
    printf("g_i_fetch_num        = %8ld   g_i_prefetch_num   = %8ld   g_i_prefetch_mem(miss_in_L1I) = %8ld    g_i_fetch_stage_cycles  =  %8ld\n", g_i_fetch_num, g_i_prefetch_num,g_i_prefetch_mem_num, g_i_fetch_stage_cycles );
+   printf("g_d_prefetch_num   = %8ld   \n", g_d_prefetch_num );
    printf("gpu_sim_cycle        = %8lld  gpu_tot_sim_cycle  = %8lld\n", gpu_sim_cycle, gpu_tot_sim_cycle+gpu_sim_cycle);
    printf("gpu_sim_insn         = %8lld  gpu_tot_sim_insn   = %8lld\n", gpu_sim_insn,gpu_tot_sim_insn+gpu_sim_insn);
    printf("gpu_ipc              = %8.4f  gpu_tot_ipc        = %8.4f\n", (float)gpu_sim_insn / gpu_sim_cycle,

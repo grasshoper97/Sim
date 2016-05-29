@@ -720,6 +720,7 @@ void baseline_cache::send_read_request(new_addr_type addr, new_addr_type block_a
 #undef MF_TUP
 #undef MF_TUP_END
 
+extern int g_show_mf_travel;
 /// Read miss handler. Check MSHR hit or MSHR available, ( bool &wb, cache_block_t &evicted) added. 11 params
 void baseline_cache::send_read_request( new_addr_type addr,
                                         new_addr_type block_addr,
@@ -755,7 +756,8 @@ void baseline_cache::send_read_request( new_addr_type addr,
         m_miss_queue.push_back(mf); // miss, send to miss queue, wait next level to return;** m_miss_queue.push_back(mf);
         mf->set_status(m_miss_queue_status,time);
         //- 2016.04.05
-        printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,mf->get_sid(), mf->get_wid(),mf->get_request_uid(),"send_read_request()",mf->get_addr() , mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
+        if(g_show_mf_travel == 1)
+            printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,mf->get_sid(), mf->get_wid(),mf->get_request_uid(),"send_read_request()",mf->get_addr() , mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
         if(!wa)
         	events.push_back(READ_REQUEST_SENT);
         do_miss = true;
@@ -773,7 +775,8 @@ void data_cache::send_write_request(    mem_fetch *mf,
     m_miss_queue.push_back(mf); //--------------------- m_miss_queue.push_back();
     mf->set_status(m_miss_queue_status,time);
     //- 2016.04.05
-    printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,mf->get_sid(), mf->get_wid(),mf->get_request_uid(),"send_write_request()",mf->get_addr() , mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
+    if(g_show_mf_travel == 1)
+        printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,mf->get_sid(), mf->get_wid(),mf->get_request_uid(),"send_write_request()",mf->get_addr() , mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
 }
 
 
@@ -914,7 +917,8 @@ data_cache::wr_miss_wa( new_addr_type addr,
             m_miss_queue.push_back(wb_mf);
             wb_mf->set_status(m_miss_queue_status,time);
             //- 2016.04.05
-            printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,wb_mf->get_sid(), wb_mf->get_wid(),wb_mf->get_request_uid(), "wr_miss_wa():wb_mf",wb_mf->get_addr() , wb_mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
+            if(g_show_mf_travel == 1)
+                printf("@%5u,s%2d,w%2d,id%4d@  %22s, address=%8X, is_pre=%d, status=%2d, %30s, %10s\n",time,wb_mf->get_sid(), wb_mf->get_wid(),wb_mf->get_request_uid(), "wr_miss_wa():wb_mf",wb_mf->get_addr() , wb_mf->m_is_pre, m_miss_queue_status, Status_str[m_miss_queue_status], this->m_name.c_str() );
         }
         return MISS;
     }
@@ -1136,6 +1140,9 @@ data_cache::process_tag_probe( bool wr,
 // of caching policies.
 // Both the L1 and L2 override this function to provide a means of
 // performing actions specific to each cache when such actions are implemnted.
+
+extern int g_d_prefetch_interval; //-define in 
+extern int g_d_prefetch_num; //-define in 
 enum cache_request_status
 data_cache::access( new_addr_type addr,
                     mem_fetch *mf,
@@ -1153,14 +1160,15 @@ data_cache::access( new_addr_type addr,
     enum cache_request_status access_status //-return 1 in 3 status. no RESERVATION_FAIL.
         = process_tag_probe( wr, probe_status, addr, cache_index, mf, time, events );//-modify cache tag array. add mf to cache's miss queue if miss.
     //=========================================BEGIN: prefetch in L1D ===================================================
-    //m_miss_queue_status="IN_L1D_MISS_QUEUEi=2", only profetch in L1D.
-    //if(m_miss_queue_status == 2 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
     // IN_PARTITION_L2_MISS_QUEUE= 12
-    if(m_miss_queue_status == 12 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
+    //if(m_miss_queue_status == 12 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
+    //m_miss_queue_status="IN_L1D_MISS_QUEUEi=2", only profetch in L1D.
+    if(m_miss_queue_status == 2 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
         //-generate a pre_mf= mf+128;
-        new_addr_type pre_addr= mf->get_addr() +128; 
+        new_addr_type pre_addr= mf->get_addr() +128 + g_d_prefetch_interval * 128 ; 
         new_addr_type pre_block_addr = m_config.block_addr( pre_addr );
-        if (pre_block_addr % 256 != 0){
+        // if (pre_block_addr % 256 != 0) //-only used in prefetch L2 to avoid access other L2 bank.
+        {
             unsigned pre_cache_index = (unsigned)-1;
             std::list<cache_event> pre_events;
 
@@ -1177,9 +1185,10 @@ data_cache::access( new_addr_type addr,
             //-get if pre_mf is already in L1D, get replace line idx.
 
             enum cache_request_status pre_probe_status
-                = m_tag_array->probe( pre_block_addr, pre_cache_index ); //-check if mf+128 in the tag[];
-            //-if MISS, sed read mf+128 ;
+                = m_tag_array->probe( pre_block_addr, pre_cache_index ); //-check if mf+N*128   in the tag[];
+            //-only if MISS, sed read mf+ N*128 ;(Donn't process when hit/res_fail/hit_res)
             if(pre_probe_status == MISS){
+                g_d_prefetch_num++;
                 enum cache_request_status pre_access_status 
                     = process_tag_probe( false , pre_probe_status, pre_addr, pre_cache_index, pre_mf, time, pre_events );
             }
