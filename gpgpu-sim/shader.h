@@ -1102,7 +1102,8 @@ class shader_memory_interface;
 class shader_core_mem_fetch_allocator;
 class cache_t;
 
-class ldst_unit: public pipelined_simd_unit {
+class ldst_unit: public pipelined_simd_unit 
+{
 public:
     ldst_unit( mem_fetch_interface *icnt,
                shader_core_mem_fetch_allocator *mf_allocator,

@@ -124,7 +124,8 @@ enum mshr_config_t {
 };
 
 
-class cache_config {
+class cache_config 
+{
 public:
     cache_config() 
     { 

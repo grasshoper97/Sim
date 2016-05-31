@@ -1142,7 +1142,9 @@ data_cache::process_tag_probe( bool wr,
 // performing actions specific to each cache when such actions are implemnted.
 
 extern int g_d_prefetch_interval; //-define in 
-extern int g_d_prefetch_num; //-define in 
+extern int g_d_prefetch_num;      //-define in 
+extern int g_d_prefetch_open ;    //- 0=close, 1=open
+
 enum cache_request_status
 data_cache::access( new_addr_type addr,
                     mem_fetch *mf,
@@ -1163,7 +1165,7 @@ data_cache::access( new_addr_type addr,
     // IN_PARTITION_L2_MISS_QUEUE= 12
     //if(m_miss_queue_status == 12 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
     //m_miss_queue_status="IN_L1D_MISS_QUEUEi=2", only profetch in L1D.
-    if(m_miss_queue_status == 2 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
+    if( g_d_prefetch_open == 1 && m_miss_queue_status == 2 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
         //-generate a pre_mf= mf+128;
         new_addr_type pre_addr= mf->get_addr() +128 + g_d_prefetch_interval * 128 ; 
         new_addr_type pre_block_addr = m_config.block_addr( pre_addr );

@@ -1464,9 +1464,17 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, war
     mem_fetch *mf = m_mf_allocator->alloc(inst,inst.accessq_back()); // copy a pointer of  mf form tail of accessQ of inst.
     std::list<cache_event> events;// list< cache_event >
     //**** cache. access() *****
-    if(g_show_mf_travel == 1)
+    if(g_show_mf_travel == 1) 
        printf("@%5u,s%2d,w%2d,id%4d@, %22s, address=%8X, is_pre=%d, %40s, %10s\n",gpu_sim_cycle,mf->get_sid(), mf->get_wid(),mf->get_request_uid(),"processMoryaAcessQqueue",mf->get_addr() , mf->m_is_pre, "ldst_unit->access L1D", "ldst_unit" );
     enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);//-modify cache
+    if(g_show_mf_travel == 2) {
+       int tp=mf->get_access_type(); 
+       new_addr_type block_addr = mf->get_addr() & ~(128-1); //-copy function block_addr()
+       if( tp == GLOBAL_ACC_R || tp == GLOBAL_ACC_W )
+             printf("GloW/R@l1_cache %u \t%llx \t%llx \t%d \t %d \t %d \t%u\n",
+               mf->get_sid() ,mf->get_addr(), block_addr,  mf->get_data_size(), 
+               mf->get_is_write(), status, mf->get_timestamp() );
+    }
     mem_stage_stall_type t= process_cache_access( cache, mf->get_addr(), inst, events, mf, status );//inst.accessq.pop().
 
 //- is a wrong prefetch way. 
