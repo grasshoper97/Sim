@@ -201,10 +201,17 @@ int  g_i_prefetch_length      =0; //-defined and inited here, used in "shader.cc
 int  g_i_prefetch_mode        =1; //-0x01= PRE_ON_HIT; 0x10=PRE_ON_MISS; 0x11=PRE_ON_ALL (ON_XXX is used in cahce mode)
 
 int  g_d_prefetch_open        =0; //- 0=close, 1=open
+
 int  g_d_prefetch_interval    =0; //-defined and inited here, used in "gpu-cache.cc:1361" data_cache::access
 int  g_d_prefetch_length      =0; //-defined and inited here, not used now.
 
 int  g_show_mf_travel         =0; //-defined and inited here, 1= in L1/L2/icnt queue, 2=only show in ldst::process_memory_access_queue(); 
+
+int g_mkv_table_size          =128;
+int g_mkv_list_len            =32;
+int g_mkv_table_cut_inte      =500;
+int g_mkv_entry_cut_inte      =500;
+int g_mkv_table_batch_cut     =1000;
 
 //-statistic  I cache prefetch message;
 long g_i_fetch_num            =0; //-defined and inited here, used in "shader.cc:607","gpu-sim.cc":883
@@ -237,55 +244,75 @@ void read_my_config(){ //-read my own global vars.
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_i_prefetch_rec_max_size = option_value; //- init global var 'g_prefetch_rec_max_size'
-    printf("my_options.config :{%s   %d}       g_i_prefetch_rec_max_size=%d\n",option_name,option_value,g_i_prefetch_rec_max_size);
     // get I interval
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_i_prefetch_interval = option_value; //- init global var 'g_i_prefetch_interval'
-    printf("my_options.config : {%s   %d}      g_i_prefetch_interval =%d\n", option_name , option_value,g_i_prefetch_interval);
     // get I prefetch length
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_i_prefetch_length = option_value; //- init global var 'g_i_prefetch_length'
-    printf("my_options.config : {%s   %d}      g_i_prefetch_length=%d\n", option_name , option_value,g_i_prefetch_length);
     // get I prefetch mode/ ON_HIT /ON_MISS/ ON_ALL
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_i_prefetch_mode = option_value; //- init global var 'g_i_prefetch_mode'
-    printf("my_options.config : {%s   %d}      g_i_prefetch_mode=%d\n", option_name , option_value,g_i_prefetch_mode);
+    //- Data prefetch;
     // get D prefetch open
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_d_prefetch_open = option_value; //- init global var g_d_prefetch_interval
-    printf("my_options.config : {%s   %d}      g_d_prefetch_open=%d\n",option_name, option_value,g_d_prefetch_open);
     // get D prefetch interval
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_d_prefetch_interval = option_value; //- init global var g_d_prefetch_interval
-    printf("my_options.config : {%s   %d}      g_d_prefetch_interval=%d\n",option_name, option_value,g_d_prefetch_interval);
     // get D prefetch length
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_d_prefetch_length = option_value; //- init global var g_d_prefetch_length
-    printf("my_options.config : {%s   %d}      g_d_prefetch_length=%d\n", option_name , option_value,g_d_prefetch_length);
     // get show mf flag
     myfile.getline (buffer,256); 
     assert(strlen(buffer)>0);
     sscanf(buffer,"%s %d" , &option_name , &option_value);
     g_show_mf_travel = option_value; //- init global var g_show_mf_travel
-    printf("my_options.config : {%s   %d}      g_show_mf_travel=%d\n", option_name , option_value,g_show_mf_travel);
+    //-Markov params
+    // get markov map size
+    myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_mkv_table_size = option_value; //- init global var g_show_mf_travel
+    // get markov list len
+    myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_mkv_list_len = option_value; //- init global var g_show_mf_travel
+    // get table cut interval
+    myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_mkv_table_cut_inte = option_value; //- init global var g_show_mf_travel
+    // get  list cut interval 
+    myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_mkv_entry_cut_inte = option_value; //- init global var g_show_mf_travel
+    // get table batch cut interval
+    myfile.getline (buffer,256); 
+    assert(strlen(buffer)>0);
+    sscanf(buffer,"%s %d" , &option_name , &option_value);
+    g_mkv_table_batch_cut = option_value; //- init global var g_show_mf_travel
 
     myfile.close();
     printf("I his size = %d; I prefetch interval = %d; I prefetch length=%d; I prefetch mode=%d\n",
             g_i_prefetch_rec_max_size,g_i_prefetch_interval,g_i_prefetch_length, g_i_prefetch_mode);
     printf("D prefetch open =%d; D prefetch interval = %d; D prefetch length=%d; show_mf_travel=%d\n",
             g_d_prefetch_open ,g_d_prefetch_interval,g_d_prefetch_length, g_show_mf_travel);
+    printf("g_mkv_table_size=%d, g_mkv_list_len=%d, g_mkv_table_cut_inte=%d, g_mkv_entry_cut_inte=%d, g_mkv_table_batch_cut=%d\n", g_mkv_table_size , g_mkv_list_len, g_mkv_table_cut_inte , g_mkv_entry_cut_inte  , g_mkv_table_batch_cut);
 }
 gpgpu_sim *gpgpu_ptx_sim_init_perf()
 {

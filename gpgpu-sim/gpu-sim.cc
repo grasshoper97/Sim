@@ -914,14 +914,14 @@ void gpgpu_sim::gpu_print_stat()
 
    //shader_print_l1_miss_stat( stdout ); 
    //========= Core cache stats =========
-   shader_print_cache_stats(stdout);
+   shader_print_cache_stats(stdout); //-L1I L1D L1T L1C
 
    cache_stats core_cache_stats;
    core_cache_stats.clear();
    for(unsigned i=0; i<m_config.num_cluster(); i++){
        m_cluster[i]->get_cache_stats(core_cache_stats);
    }
-   printf("\n--------- Total_core_cache_stats:-----------\n");
+   printf("\n--------- Total_core_cache_stats[bread_down]:-----------\n");
    core_cache_stats.print_stats(stdout, "Total_core_cache_stats_breakdown");
 
    printf("\n--------- scheduler state  -----------------\n");

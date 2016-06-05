@@ -351,7 +351,7 @@ protected:
 
     unsigned m_access;
     unsigned m_miss;
-    unsigned m_pending_hit; // number of cache miss that hit a line that is allocated but not filled
+    unsigned m_pending_hit; // number of cache miss that hit a line that is in MSHR but not back from memory.
     unsigned m_res_fail;
 
     // performance counters for calculating the amount of misses within a time window
@@ -609,15 +609,15 @@ protected:
     }
 
 protected:
-    std::string m_name;
-    cache_config &m_config;
-    tag_array*  m_tag_array; //-tag data here;
-    mshr_table m_mshrs; //-mshr, not a pointer, is a instance.
-    std::list<mem_fetch*> m_miss_queue;// missing queue.list<*mf>
+    std::string     m_name;
+    cache_config   &m_config;
+    tag_array*      m_tag_array;    //-tag data here;
+    mshr_table      m_mshrs;        //-mshr, not a pointer, is a instance.
+    std::list<mem_fetch*> m_miss_queue; // missing queue.list<*mf>
     enum mem_fetch_status m_miss_queue_status;
-    mem_fetch_interface *m_memport;//-interface
+    mem_fetch_interface  *m_memport;    //-interface
 
-    struct extra_mf_fields {//-info need in cache: block_addr/ cache_index
+    struct extra_mf_fields {        //-info need in cache: block_addr/ cache_index
         extra_mf_fields()  { m_valid = false;}
         extra_mf_fields( new_addr_type a, unsigned i, unsigned d ) 
         {
@@ -694,6 +694,16 @@ protected:
     : baseline_cache(name,config,core_id,type_id,memport,status, new_tag_array){}
 };
 
+//_________________________________Markov_____________________________________________
+#include "markov.h"
+#include <time.h>
+#include <stdlib.h>
+//_________________________________Markov_____________________________________________
+extern int g_mkv_table_size;
+extern int g_mkv_list_len;
+extern int g_mkv_table_cut_inte;
+extern int g_mkv_entry_cut_inte; 
+extern int g_mkv_table_batch_cut;
 /// Data cache - Implements common functions for L1 and L2 data cache
 class data_cache : public baseline_cache {
 public:
@@ -708,10 +718,21 @@ public:
         m_wrbk_type = wrbk_type; //L1 or L2
     }
 
-    virtual ~data_cache() {}
+    virtual ~data_cache() {
+        delete m_mkv;
+    }
 
     virtual void init( mem_fetch_allocator *mfcreator )
     {
+        //-2016.05.31
+        //m_mkv=new MKVTable(128,8,500,500, 1500);
+        m_mkv=new MKVTable( g_mkv_table_size,
+                            g_mkv_list_len,
+                            g_mkv_table_cut_inte,
+                            g_mkv_entry_cut_inte, 
+                            g_mkv_table_batch_cut);
+        srand((unsigned)time(0));  
+
         m_memfetch_creator=mfcreator;
 
         // 1:Set read hit function
@@ -726,12 +747,12 @@ public:
         case READ_ONLY:
             assert(0 && "Error: Writable Data_cache set as READ_ONLY\n");
             break; 
-        case WRITE_BACK: m_wr_hit = &data_cache::wr_hit_wb; break;  //- L2 cache default config
-        case WRITE_THROUGH: m_wr_hit = &data_cache::wr_hit_wt; break;
-        case WRITE_EVICT: m_wr_hit = &data_cache::wr_hit_we; break;
+        case WRITE_BACK     : m_wr_hit = &data_cache::wr_hit_wb; break;  //- L2 cache default config
+        case WRITE_THROUGH  : m_wr_hit = &data_cache::wr_hit_wt; break;
+        case WRITE_EVICT    : m_wr_hit = &data_cache::wr_hit_we; break;
         case LOCAL_WB_GLOBAL_WT:
-            m_wr_hit = &data_cache::wr_hit_global_we_local_wb;
-            break;
+                              m_wr_hit = &data_cache::wr_hit_global_we_local_wb;
+                              break;
         default:
             assert(0 && "Error: Must set valid cache write policy\n");
             break; // Need to set a write hit function
@@ -739,8 +760,8 @@ public:
 
         // 4:Set write miss function
         switch(m_config.m_write_alloc_policy){
-        case WRITE_ALLOCATE: m_wr_miss = &data_cache::wr_miss_wa; break;//- L2 cache default config
-        case NO_WRITE_ALLOCATE: m_wr_miss = &data_cache::wr_miss_no_wa; break;
+        case WRITE_ALLOCATE     : m_wr_miss = &data_cache::wr_miss_wa   ; break;//- L2 cache default config
+        case NO_WRITE_ALLOCATE  : m_wr_miss = &data_cache::wr_miss_no_wa; break;
         default:
             assert(0 && "Error: Must set valid cache write miss policy\n");
             break; // Need to set a write miss function
@@ -769,8 +790,8 @@ protected:
         m_wrbk_type = wrbk_type;
     }
 
-    mem_access_type m_wr_alloc_type; // Specifies type of write allocate request (e.g., L1 or L2)
-    mem_access_type m_wrbk_type; // Specifies type of writeback request (e.g., L1 or L2)
+    mem_access_type m_wr_alloc_type; //-Specifies type of write allocate request (e.g., L1 or L2)
+    mem_access_type m_wrbk_type;     //-Specifies type of writeback request (e.g., L1 or L2)
 
     //! A general function that takes the result of a tag_array probe
     //  and performs the correspding functions based on the cache configuration
@@ -894,8 +915,8 @@ protected:
                       unsigned time,
                       std::list<cache_event> &events,
                       enum cache_request_status status );
-
-};
+    MKVTable * m_mkv;
+};//-data_cache
 
 /// This is meant to model the first level data cache in Fermi.
 /// It is write-evict (global) or write-back (local) at

@@ -108,7 +108,7 @@ void tag_array::init( int core_id, int type_id )
     m_core_id = core_id; 
     m_type_id = type_id;
 }
-// search in cache,return 4 type: hit/pending_hit/miss/reservation_fail. if miss ,idx is the evict line.
+// search in cache,return 4 type: HIT/PENDING_HIT/MISS/RESERVATION_FAIL. if miss ,idx is the evict line.
 enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) const {
     //assert( m_config.m_write_policy == READ_ONLY );
     unsigned set_index = m_config.set_index(addr);//-get the set No this addr belong to. low bits of addr.
@@ -160,9 +160,9 @@ enum cache_request_status tag_array::probe( new_addr_type addr, unsigned &idx ) 
         }
     }//-end of for
     //-if run to here,must not be (pending)hit.
-    if ( all_reserved ) {//- MISS + cann't find a replace line = RESERVATION_FAIL;
+    if ( all_reserved ) {//- miss and all lines have been allocated ,not free line for this miss(reason 1)
         assert( m_config.m_alloc_policy == ON_MISS ); 
-        return RESERVATION_FAIL; //- miss and not space to allocate on miss
+        return RESERVATION_FAIL; 
     }
     //-if has a invalid candidate, return with it ; or return with a line selected by LRU/FIFO for evict.
     if ( invalid_line != (unsigned)-1 ) {
@@ -187,12 +187,12 @@ enum cache_request_status tag_array::access( new_addr_type addr, unsigned time, 
 {
     m_access++;
     shader_cache_access_log(m_core_id, m_type_id, 0); // log accesses to cache
-    enum cache_request_status status = probe(addr,idx);
+    enum cache_request_status status = probe(addr,idx); //-probe again (can optimize by save and transfer 'status'&'idx'to this function?)
     switch (status) {
     case HIT_RESERVED: 
         m_pending_hit++;  //HIT_RESERVED ->  pending hit 
     case HIT: 
-        m_lines[idx].m_last_access_time=time;  //-modify access time of the hit line.
+        m_lines[idx].m_last_access_time=time;  //-modify access time of the hit line. this var decide LRU
         break;
     case MISS:
         m_miss++;
@@ -738,7 +738,7 @@ void baseline_cache::send_read_request( new_addr_type addr,
     bool mshr_avail = !m_mshrs.full(block_addr);
     if ( mshr_hit && mshr_avail ) { //- hit in mshr( HIT_RESERVED, pending hit), need not add mf to miss_queue.
     	if(read_only) //-read only cache (.e.g L1I), need not wb;
-    		m_tag_array->access(block_addr,time,cache_index);
+    		m_tag_array->access(block_addr,time,cache_index); //-retrun 4 cache_status, but no save & use here.
     	else         //-L1D/L1C/L1T
     		m_tag_array->access(block_addr,time,cache_index,wb,evicted);
 
@@ -746,7 +746,7 @@ void baseline_cache::send_read_request( new_addr_type addr,
         do_miss = true;
     } else if ( !mshr_hit && mshr_avail && (m_miss_queue.size() < m_config.m_miss_queue_size) ) {//- miss in mshr
     	if(read_only)
-    		m_tag_array->access(block_addr,time,cache_index);
+    		m_tag_array->access(block_addr,time,cache_index); //-mark the right line as RESERVED.
     	else
     		m_tag_array->access(block_addr,time,cache_index,wb,evicted); //-wb & evicted is return value.
 
@@ -763,7 +763,7 @@ void baseline_cache::send_read_request( new_addr_type addr,
         do_miss = true;
     }
     // else means no mshr space or no miss_queque space for this mf, do_miss is false,reservation_false
-}//- do_miss, wb & evict return to upper call. do_miss means this mf is processed. 
+}//- [do_miss, wb & evict] return to upper call. do_miss means this mf is processed. 
 
 
 /// Sends write request to lower level memory (write or writeback)
@@ -782,7 +782,7 @@ void data_cache::send_write_request(    mem_fetch *mf,
 
 /****** Write-hit functions (Set by config file) ******/
 
-/// Write-back hit: Mark block as modified
+/// Write-back hit: Mark block as modified , //-return: retrun HIT
 cache_request_status 
         data_cache::wr_hit_wb(  new_addr_type addr, 
                                 unsigned cache_index, 
@@ -793,12 +793,12 @@ cache_request_status
 	new_addr_type block_addr = m_config.block_addr(addr);
 	m_tag_array->access(block_addr,time,cache_index); // update LRU state , 3 param 
 	cache_block_t &block = m_tag_array->get_block(cache_index);
-	block.m_status = MODIFIED;
+	block.m_status = MODIFIED; //-mark dirty data.
 
 	return HIT;
 }
 
-/// Write-through hit: Directly send request to lower level memory
+/// Write-through hit: Directly send request to lower level memory ; //-return RES_FAIL/ HIT
 cache_request_status 
     data_cache::wr_hit_wt(  new_addr_type addr, 
                             unsigned cache_index, 
@@ -821,7 +821,7 @@ cache_request_status
 }
 
 /// Write-evict hit: Send request to lower level memory and invalidate corresponding block
-cache_request_status //-return HIT,RESRERVATION_FAIL
+cache_request_status                                        //-return HIT,RESRERVATION_FAIL
     data_cache::wr_hit_we(  new_addr_type addr, 
                             unsigned cache_index, 
                             mem_fetch *mf, 
@@ -836,7 +836,7 @@ cache_request_status //-return HIT,RESRERVATION_FAIL
 	send_write_request(mf, WRITE_REQUEST_SENT, time, events);
 
 	// Invalidate block
-	block.m_status = INVALID;
+	block.m_status = INVALID; //-this line be evicted to next level memory.
 
 	return HIT;
 }
@@ -1030,7 +1030,7 @@ data_cache::rd_miss_base( new_addr_type addr,
                           unsigned time,
                           std::list<cache_event> &events,
                           enum cache_request_status status ){
-    if(miss_queue_full(1)) //-if unable to add 1 element. cannot handle request this cycle
+    if(miss_queue_full(1)) //-if unable to add 1 element, retrun RES_FAIL(reason 2).??? HIT_RES need not put into missQ. 
         return RESERVATION_FAIL; 
 
     new_addr_type block_addr = m_config.block_addr(addr);
@@ -1052,9 +1052,9 @@ data_cache::rd_miss_base( new_addr_type addr,
             send_write_request(wb_mf, WRITE_BACK_REQUEST_SENT, time, events); 
             //-read op can invoke a write op; wrtie_back_request_sent only here
         }
-        return MISS;
+        return MISS; //-HIT_RES --> MISS;
     }
-    return RESERVATION_FAIL;
+    return RESERVATION_FAIL; //-do_miss==fail, means no MSHR(reason 3) or missQ room.
 }
 
 /// Access cache for read_only_cache: returns RESERVATION_FAIL if
@@ -1095,7 +1095,7 @@ read_only_cache::access( new_addr_type addr,
 //! A general function that takes the result of a tag_array probe
 //  and performs the correspding functions based on the cache configuration
 //  The access fucntion calls this function
-enum cache_request_status
+enum cache_request_status                                       //-retrun HIT/MISS/ RES_FAIL  (no HIT_RES)
 data_cache::process_tag_probe( bool wr,
                                enum cache_request_status probe_status,// get from probe()
                                new_addr_type addr,
@@ -1108,23 +1108,23 @@ data_cache::process_tag_probe( bool wr,
     // data_cache constructor to reflect the corresponding cache configuration
     // options. Function pointers were used to avoid many long conditional
     // branches resulting from many cache configuration options.
-    cache_request_status access_status = probe_status; //-process Hit/Miss/Hit_reserved(pending), exclude Resvation_fail.
+    cache_request_status access_status = probe_status; //-process Hit/Miss/Hit_reserved(pending), exclude RES_FAIL.
     if(wr){ // Write
-        if(probe_status == HIT){//-Hit
+        if(probe_status == HIT){                        //-on(HIT)           return (HIT)
             access_status = (this->*m_wr_hit)( addr,
                                       cache_index,
                                       mf, time, events, probe_status );
-        }else if ( probe_status != RESERVATION_FAIL ) {//-Miss .Hit_reserved
+        }else if ( probe_status != RESERVATION_FAIL ) { //-on(MISS, HIT_RES) return (MISS .RES_FAIL.)
             access_status = (this->*m_wr_miss)( addr,
                                        cache_index,
                                        mf, time, events, probe_status );
         }
     }else{ // Read
-        if(probe_status == HIT){ //-Hit
+        if(probe_status == HIT){                        //-on(HIT),          return HIT, RESVATION_FAIL.
             access_status = (this->*m_rd_hit)( addr,
                                       cache_index,
                                       mf, time, events, probe_status );
-        }else if ( probe_status != RESERVATION_FAIL ) { //-Miss, Hit_reserved
+        }else if ( probe_status != RESERVATION_FAIL ) { //-on(MISS, HIT_RES), return MISS, RESERVATION_FAIL
             access_status = (this->*m_rd_miss)( addr,
                                        cache_index,
                                        mf, time, events, probe_status );
@@ -1145,6 +1145,11 @@ extern int g_d_prefetch_interval; //-define in
 extern int g_d_prefetch_num;      //-define in 
 extern int g_d_prefetch_open ;    //- 0=close, 1=open
 
+unsigned   g_old_addr=0;          //-record previous_addr;
+unsigned   g_oldold_addr=0;          //-record previous_addr;
+unsigned   last_show_time=0;       //-contral m_mkv->show();
+
+
 enum cache_request_status
 data_cache::access( new_addr_type addr,
                     mem_fetch *mf,
@@ -1156,21 +1161,55 @@ data_cache::access( new_addr_type addr,
     new_addr_type block_addr = m_config.block_addr(addr);
     unsigned cache_index = (unsigned)-1;
 
-    enum cache_request_status probe_status
+    enum cache_request_status probe_status //-RES_FAIL reason:(1)no cache line (2)no missQ room (3)no MSHR; RES_FAIL lead this mf be deleted. and try next cycle.
         = m_tag_array->probe( block_addr, cache_index ); // search in cache tag[], return 1 in 4 status,and a cache_index
 
-    enum cache_request_status access_status //-return 1 in 3 status. no RESERVATION_FAIL.
+    //-only print in L1D
+    int tp=mf->get_access_type(); 
+    if(g_show_mf_travel == 2 && m_miss_queue_status == 2 && (tp == GLOBAL_ACC_R || tp == GLOBAL_ACC_W) ) {
+       new_addr_type block_addr = mf->get_addr() & ~(128-1); //-copy function block_addr()
+       char wr=mf->get_is_write() ==1 ?'w':'r';
+       printf("ldst_unit@l1_cache %2u \t%llx \t%llx \t%3d \t%c \t%d \t%8u\n",
+           mf->get_sid() ,mf->get_addr(), block_addr,  mf->get_data_size(), wr, probe_status, mf->get_timestamp() );
+    }
+
+    enum cache_request_status access_status //-return 1 in 3 status. no Hit_reserved.
         = process_tag_probe( wr, probe_status, addr, cache_index, mf, time, events );//-modify cache tag array. add mf to cache's miss queue if miss.
     //=========================================BEGIN: prefetch in L1D ===================================================
     // IN_PARTITION_L2_MISS_QUEUE= 12
     //if(m_miss_queue_status == 12 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
     //m_miss_queue_status="IN_L1D_MISS_QUEUEi=2", only profetch in L1D.
     if( g_d_prefetch_open == 1 && m_miss_queue_status == 2 &&  mf->get_access_type() == GLOBAL_ACC_R ) {
+        //_________________________________next line_____________________________________________
         //-generate a pre_mf= mf+128;
-        new_addr_type pre_addr= mf->get_addr() +128 + g_d_prefetch_interval * 128 ; 
-        new_addr_type pre_block_addr = m_config.block_addr( pre_addr );
+        // input: block_addr
+        // output: pre_addr/pre_block_addr;
+        //new_addr_type pre_addr= mf->get_addr() +128 + g_d_prefetch_interval * 128 ; 
+        //new_addr_type pre_block_addr = m_config.block_addr( pre_addr );
+        //_________________________________next line_____________________________________________
+        
+        //_________________________________Markov_____________________________________________
+        // input: g_old_addr, block_addr
+        // output: pre_addr, pre_block_addr;
+        m_mkv->update_table( g_oldold_addr, block_addr,time);//-now can replace by itself 
+       // printf("markov:update  %X--->%X\n", g_old_addr, block_addr);
+        g_oldold_addr=g_old_addr;
+        g_old_addr=block_addr;
+        new_addr_type pre_addr= m_mkv->find_max(block_addr, time );
+        new_addr_type pre_block_addr = pre_addr;
+        //m_mkv->cut_table_batch(time); //-cut the all lists which not used in recent 1500 cycles.
+        //m_mkv->cut_table_LRU(time);   //-cut one list every 500 cycles;
+        //m_mkv->cut_entry_LRU(time);   //-cut one candidate in all lists every 500 cycles;
+        if(time-last_show_time>500){
+            m_mkv->show(m_name);
+            last_show_time=time;
+        }
+        //_________________________________Markov_____________________________________________
         // if (pre_block_addr % 256 != 0) //-only used in prefetch L2 to avoid access other L2 bank.
+        float my_rand= (float)rand() / (float)(RAND_MAX + 1);
+        if ( my_rand<0.15 && pre_addr > 0 )//-get valid addr from m_mkv;
         {
+            printf("markov:%s:  %X--->%X\n", m_name.c_str(), block_addr, pre_addr);
             unsigned pre_cache_index = (unsigned)-1;
             std::list<cache_event> pre_events;
 

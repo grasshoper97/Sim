@@ -472,16 +472,16 @@ private:
    // stats
    class shader_core_stats  *m_shader_stats; //-only 1, shared by all cores in this gpu.
    class memory_stats_t     *m_memory_stats;
-   class power_stat_t *m_power_stats;
-   class gpgpu_sim_wrapper *m_gpgpusim_wrapper;
-   unsigned long long  last_gpu_sim_insn;
+   class power_stat_t       *m_power_stats;
+   class gpgpu_sim_wrapper  *m_gpgpusim_wrapper;
+   unsigned long long       last_gpu_sim_insn;
 
-   unsigned long long  last_liveness_message_time; 
+   unsigned long long       last_liveness_message_time; 
 
    std::map<std::string, FuncCache> m_special_cache_config;
 
    std::vector<std::string> m_executed_kernel_names; //< names of kernel for stat printout 
-   std::vector<unsigned> m_executed_kernel_uids; //< uids of kernel launches for stat printout
+   std::vector<unsigned>    m_executed_kernel_uids; //< uids of kernel launches for stat printout
    std::string executed_kernel_info_string(); //< format the kernel information into a string for stat printout
    void clear_executed_kernel_info(); //< clear the kernel information after stat printout
 public:
@@ -495,7 +495,7 @@ public:
    unsigned long long  gpu_sim_insn;         //member vars
    unsigned long long  gpu_tot_sim_insn;
    unsigned long long  gpu_sim_insn_last_update;
-   unsigned gpu_sim_insn_last_update_sid;
+   unsigned            gpu_sim_insn_last_update_sid;
 
 
 
